@@ -1,0 +1,261 @@
+.table-conten-sheets{
+    width: 100%;
+    height: 100%;
+    font-family: sans-serif;
+    position:relative;
+    overflow: auto;
+    left: 10px;
+    top: 10px;
+
+    --head-color:white;
+    --border-color:rgb(180, 180, 180);
+    --color-primario:rgb(0, 217, 255);
+    --select-color:color-mix(in srgb, var(--color-primario) 20%, white);
+    --select-head-color:color-mix(in srgb, var(--select-color) 60%, var(--head-color));
+    --select-border-color:color-mix(in srgb, var(--select-color) 60%, black);
+    --select-multi-cells-borde:solid color-mix(in srgb, var(--color-primario) 60%, black) 2px;
+    --font-size: 13px;
+    --font-size-title: calc(var(--font-size) + 1px);
+}
+.table-object-sheets{
+    border-collapse: collapse;
+}
+
+.table-object-sheets thead{
+    position: sticky;
+    top: 0px;
+    left: 0px;
+    z-index: 10;
+    font-weight: bolder;
+}
+
+.table-object-sheets thead td{
+    background: var(--head-color);
+    text-align: center;
+    font-size: var(--font-size-title);
+    border: solid var(--border-color) 0.5px;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    padding: 5px;
+    user-select: none;
+}
+
+.table-object-sheets thead td:nth-child(1){
+    border: none;
+}
+
+.table-object-sheets thead td:nth-child(1):hover{
+    background: white;
+}
+
+.table-object-sheets tbody td{
+    min-width: 100px;
+    text-align: center;
+    font-size: var(--font-size);
+    border: solid var(--border-color) 0.5px;
+    padding: 5px;
+    user-select: none;
+    transition: 0.1s;
+}
+
+.table-object-sheets tbody td:nth-child(1){
+    min-width: 20px;
+    background: var(--head-color);
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    position: sticky;
+    left: 0px;
+    top: 0px;
+    z-index: 10;
+}
+
+.table-object-sheets tbody tr{
+    background: white;
+}
+
+.table-object-sheets tbody td[type="Numero"], .table-object-sheets tbody td[type="Date"], .table-object-sheets tbody td[data-type="Numero"], .table-object-sheets tbody td[data-type="Date"]{
+    text-align: end;
+}
+
+.table-object-sheets tbody td[type="List"], .table-object-sheets tbody td[data-type="List"]{
+    text-align: left;
+}
+
+.table-object-sheets tbody td[type="List"]::after{
+    font-family: bootstrap-icons !important;
+    content: "\F229";
+    float: right;
+    color: gray;
+}
+
+.table-object-sheets .table-sheets-celda{
+    --selec-type-color:var(--select-color);
+    --selec-type-borde:solid;
+    --selec-border-width:0.5px;
+    --selec-type-with:100px;
+    --selec-type-height:25px;
+    --selec-type-top:0px;
+    --selec-type-left:0px;
+    padding: 5px;
+}
+
+
+.table-object-sheets tbody td.select{
+    background: var(--selec-type-color);
+    border-color: color-mix(in srgb, var(--selec-type-color) 60%, black);
+}
+
+.table-object-sheets tbody td:nth-child(1):hover, .table-object-sheets tbody td:nth-child(1).select , .table-object-sheets thead td.select , .table-object-sheets thead td:hover{
+    background: var(--select-head-color);
+    border-color: var(--select-border-color);
+}
+
+
+
+.table-object-sheets .table-sheets-celda.table-sheets-celda-selection::before{
+    width: var(--selec-type-with);
+    height: var(--selec-type-height);
+    content: '';
+    display: block;
+    position: absolute;
+    top:var(--selec-type-top);
+    left: var(--selec-type-left);
+    border: solid color-mix(in srgb, var(--selec-type-color) 60%, black) 2px;
+}
+
+.tabla-sheet-seleccion{
+    position: absolute;
+    user-select: none;
+    transition: 0.2s;
+    border: var(--select-multi-cells-borde);
+}
+
+.tabla-sheet-seleccion input[type="text"]{
+    width: 95%;
+    height: 95%;
+    margin: 0px;
+    border: none;
+    background: white;
+    text-align: end;
+    font-size: var(--font-size);
+}
+
+.tabla-sheet-seleccion input[type="text"]:focus-visible{
+    outline: none;
+}
+
+.table-sheets-list-box-selectro-contenedor{
+    width: fit-content;
+    max-height: 200px;
+    border-radius: 4px;
+    box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px;
+    padding-top: 5px;
+    padding-bottom: 10px;
+    background: white;
+    border: solid var(--select-border-color) 0.5px;
+    overflow-y: auto;
+}
+
+.table-sheet-item-selector{
+    min-width: 150px;
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    color: rgb(85, 85, 85);
+    display: flex;
+    align-items: center;
+    border-radius: 5px;
+    padding: 5px;
+    padding-left: 10px;
+    padding-right: 0px;
+    user-select: none;
+}
+
+.table-sheet-item-selector .bi{
+    color: black;
+    font-size: calc(var(--font-size) - 1px);
+}
+
+.table-sheet-item-selector span{
+    margin-left: 10px;
+    margin-right: 10px;
+    font-size: var(--font-size);
+}
+
+.table-sheet-item-selector:hover{
+    background: var(--select-color);
+    color: black;
+}
+.table-sheet-item-selector:hover .bi{
+    animation: tabla-seleccion-item-hove-animacion 0.5s;
+}
+
+.Sheet-table-equation-latex-contenedor{
+    min-width: 200px;
+    min-height: 50px;
+    padding: 20px;
+    font-size: 13px;
+}
+
+@keyframes tabla-seleccion-item-hove-animacion{
+    0%{
+        transform: translateX(0px);
+    }
+    50%{
+        transform: translateX(3px);
+    }
+    100%{
+        transform: translateX(0px);
+    }
+}
+
+.Table-sheets-select_formula-cell::before{
+    width: var(--selec-type-with);
+    height: var(--selec-type-height);
+    content: '';
+    display: block;
+    position: absolute;
+    top:var(--selec-type-top);
+    left: var(--selec-type-left);
+    border: dashed color-mix(in srgb, var(--selec-type-color) 60%, black) 2px;
+}
+
+.table-sheets-cell-input-conten{
+    width: var(--selec-type-with);
+    height: var(--selec-type-height);
+    top:var(--selec-type-top);
+    left: var(--selec-type-left);
+    position: absolute;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    display: none;
+    border: solid color-mix(in srgb, var(--selec-type-color) 60%, black) 2px;
+    transition: 0.2s;
+}
+
+.select[data-activo="true"] .table-sheets-cell-input-conten{
+    display: flex;
+}
+
+.table-sheets-input-cell{
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+    border: none;
+    background: white;
+    text-align: end;
+    font-size: var(--font-size);
+}
+
+.table-sheets-input-cell{
+    outline: none;
+}
+
+.table-sheets-cell-text-conten{
+    min-width: 100%;
+    height: 100%;
+}
