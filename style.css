@@ -75,14 +75,6 @@
     background: white;
 }
 
-.table-object-sheets tbody td[type="Numero"], .table-object-sheets tbody td[type="Date"], .table-object-sheets tbody td[data-type="Numero"], .table-object-sheets tbody td[data-type="Date"]{
-    text-align: end;
-}
-
-.table-object-sheets tbody td[type="List"], .table-object-sheets tbody td[data-type="List"]{
-    text-align: left;
-}
-
 .table-object-sheets tbody td[type="List"]::after{
     font-family: bootstrap-icons !important;
     content: "\F229";
@@ -103,7 +95,7 @@
 
 
 .table-object-sheets tbody td.select{
-    background: var(--selec-type-color);
+    /* background: var(--selec-type-color); */
     border-color: color-mix(in srgb, var(--selec-type-color) 60%, black);
 }
 
@@ -133,8 +125,8 @@
 }
 
 .tabla-sheet-seleccion input[type="text"]{
-    width: 95%;
-    height: 95%;
+    width: calc(100% - 4px);
+    height: calc(100% - 2px);
     margin: 0px;
     border: none;
     background: white;
@@ -147,7 +139,7 @@
 }
 
 .table-sheets-list-box-selectro-contenedor{
-    width: fit-content;
+    display: inline-block;
     max-height: 200px;
     border-radius: 4px;
     box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px;
@@ -156,6 +148,7 @@
     background: white;
     border: solid var(--select-border-color) 0.5px;
     overflow-y: auto;
+    margin-top: 5px;
 }
 
 .table-sheet-item-selector{
