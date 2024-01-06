@@ -1,3 +1,28 @@
+const SHEETS_FUNCTIONS={
+    SUM:(x)=>{
+        return math.sum(x);
+    },
+    UNIT:(a,unit)=>{
+        return math.unit(a, unit);
+    },
+    CUNIT:(a,unit)=>{
+        console.log(a);
+        return a.to(unit);
+    }
+};
+
+SHEETS_FUNCTIONS.SUM.toTex='\\sum{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.CUNIT.toTex=function(node, options){
+    return node.args[0].toTex(options)+'_{\\text{unit}\\rightarrow'+node.args[1].toTex(options).replace(/"/g,'');
+}
+SHEETS_FUNCTIONS.UNIT.toTex=function(node, options){
+    return node.args[0].toTex(options)+'\\text{ }'+node.args[1].toTex(options).replace(/"/g,'');
+};
+
+math.import(SHEETS_FUNCTIONS);
+
+
+
 class SheetsTable{
     _mousemove=false;
     _cellselect=null;
@@ -15,6 +40,7 @@ class SheetsTable{
         this.element.appendChild(this.SelectorConten);
         this.ctrl_clikc=false;
         this.inputelement=null;
+        this.id=element.id;
 
         //Variables de funcionamiento
         Object.defineProperties(this,{
@@ -28,6 +54,10 @@ class SheetsTable{
                     type:'List',
                     invocacion:/^=List\(((?<rango>[A-z]{1,3}\d+\:[A-z]{1,3}\d+)|(?<lista>(\[-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|\".*\"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)(,-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|\".*\"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+))*\])))\)$/,
                     widgets: SheetsWidgetCellList
+                },{
+                    type:'Function',
+                    invocacion:/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\"[A-Za-z0-9\^\/\*\(\)\+\-]+\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/,
+                    widgets: SheetsWidgetCellFunction
                 },{
                     type:'Text',
                     invocacion:/.+/,
@@ -166,7 +196,7 @@ class SheetsTable{
         }
 
         for(let row of this.Rows){
-            row.insertBefore(new SheetsCell({}),index);
+            row.insertBefore(new SheetsCell({sheetstable:this}),index);
         }
 
         return true;
@@ -232,9 +262,11 @@ class SheetsTable{
     #blucle_selct(a,b,c,d){
         let cellselects=[];
         for(let i=a;i<=b;i++){
+            let row=[];
             for(let j=c;j<=d;j++){
-                cellselects.push(this.Rows[i].childNodes[j+1]);
+                row.push(this.Rows[i].childNodes[j+1]);
             }
+            cellselects.push(row);
         }
         return cellselects;
     }
@@ -308,7 +340,7 @@ class SheetsTable{
         if(event.key==='Delete'){
             for(let selectorElement of this.SelectorConten.childNodes){
                 if(!selectorElement.SelectorVisual){
-                    selectorElement.cellselects.forEach(cell=>{
+                    selectorElement.cellselects.flat().forEach(cell=>{
                         cell.value=null;
                     });
                 }
@@ -422,7 +454,7 @@ class SheetsRow extends HTMLTableRowElement{
         this.sheetstable.ctrl_clikc=false;
         this.sheetstable.cellselect=this.Cells[0];
         this.sheetstable.cellselect.CreateSelectorElement();
-        this.sheetstable.cellselect.inputconten.cellselects=Array.from(this.Cells);
+        this.sheetstable.cellselect.inputconten.cellselects=[Array.from(this.Cells)];
     }
 }
 
@@ -478,7 +510,7 @@ class SheetsColum extends HTMLTableCellElement{
         this.sheetstable.ctrl_clikc=false;
         this.sheetstable.cellselect=this.Cells[0];
         this.sheetstable.cellselect.CreateSelectorElement();
-        this.sheetstable.cellselect.inputconten.cellselects=this.Cells;
+        this.sheetstable.cellselect.inputconten.cellselects=this.Cells.map(cell=>[cell]);
     }
     
 }
@@ -677,6 +709,9 @@ class SheetsCell extends HTMLTableCellElement{
         }
         if(this.sheetstable.cellselect==cell && !this.sheetstable.ctrl_clikc){
             this.CreateInput();
+            if(this.input){
+                this.widgets.Inputclick();
+            }
             this.UpdateStylePropertys(this,this);
             this.select=true;
         }
@@ -732,7 +767,7 @@ class SheetsOpcions{
         for(let i=this.sheetstable.Rows.length;i<val;i++){
             this.sheetstable.TableBody.appendChild(new SheetsRow({sheetstable:this.sheetstable,index:i}));
             for(let j=0;j<this.sheetstable.Columns.length;j++){
-                this.sheetstable.Rows[i].appendChild(new SheetsCell({}));
+                this.sheetstable.Rows[i].appendChild(new SheetsCell({sheetstable:this.sheetstable}));
             }
         }
     }
@@ -785,10 +820,12 @@ class SheetsSelector extends HTMLDivElement{
         }
         this.cell.sheetstable.SelectorConten.appendChild(this);
         this.SelectorVisual=false;
-        this.cellselects=[this.cell];
+        this.cellselects=[[this.cell]];
+        this.Matrix=[];
 
         //Identificador de borde solido o con trazos
         this.move=false;
+        this.addEventListener('mouseup',this.#Mouseup.bind(this));
     }
 
     UpdateStylePropertys(Cell1,Cell2){
@@ -840,13 +877,13 @@ class SheetsSelector extends HTMLDivElement{
     }
 
     GetRangeInput(){
-        if(this._selects.length<1){
+        if(this._selects.flat().length<1){
             return;
         }
-        if(this._selects.length>1){
-            this.dataset['seleccions']=this._selects[0].address+':'+this._selects[this._selects.length-1].address;
+        if(this._selects.flat().length>1){
+            this.dataset['seleccions']=this._selects[0][0].address+':'+this._selects[this._selects.length-1][this._selects[this._selects.length-1].length-1].address;
         } else{
-            this.dataset['seleccions']=this._selects[0].address;
+            this.dataset['seleccions']=this._selects[0][0].address;
         }
 
         if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
@@ -905,17 +942,17 @@ class SheetsSelector extends HTMLDivElement{
     }
 
     CellSelects(){
-        this._selects.forEach(cell=>{
+        this._selects.flat().forEach(cell=>{
             cell.select=true;
             cell.SelecColor=this.color;
         });
         if(this._selects.length>0){
-            this.UpdateStylePropertys(this._selects[0],this._selects[this._selects.length-1]);
+            this.UpdateStylePropertys(this._selects[0][0],this._selects[this._selects.length-1][this._selects[this._selects.length-1].length-1]);
         }
     }
 
     CellDeselecion(){
-        this._selects.forEach(cell=>{
+        this._selects.flat().forEach(cell=>{
             if(cell!=this.cell && (!this.cell.sheetstable.ctrl_clikc || !cell.inputconten)){
                 cell.select=false;
             }
@@ -931,6 +968,12 @@ class SheetsSelector extends HTMLDivElement{
             this.cell.select=false;
         }
     }
+
+    #Mouseup(event){
+        if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
+            this.cell.sheetstable.inputelement.cell.widgets.Inpuntkey(event);
+        }
+    }
 }
 
 //input class
@@ -943,7 +986,6 @@ class SheetsInput extends HTMLInputElement{
         this.addEventListener('mouseup',(event)=>{event.stopPropagation()});
         this.value=this.cell.value;
         this.addEventListener('input',this.#Keyinput.bind(this));
-        this.addEventListener('input',this.cell.widgets.Inpuntkey.bind(this.cell.widgets));
         this.cell.sheetstable.inputelement=this;
         this.cellsintext=[];
     }
@@ -961,7 +1003,7 @@ class SheetsInput extends HTMLInputElement{
             this.cell.sheetstable.cellselect=this.cell.sheetstable.Rows[this.cell.row+row].childNodes[this.cell.colum+colum+1];
             this.cell.sheetstable.cellselect.CreateSelectorElement();
             this.cell.sheetstable.cellselect.CreateInput();
-            this.cell.sheetstable.cellselect.widgets.inputclick();
+            this.cell.sheetstable.cellselect.widgets.Inputclick();
             return true;
         }
         return false;
@@ -1031,14 +1073,12 @@ class SheetsInput extends HTMLInputElement{
         }
     }
     CellTextUpdate(){
-        this.deseleccion();
-        if(this.value[0]!='='){
-            return;
-        }
         const patron=/([A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)|([A-Z]{1,3}\d+)/mg;
         let resultado=patron.exec(this.value);
+        this.cellsintext=[];
         while(resultado){
             let selector=null;
+            let objectoText={};
             if(resultado[0].includes(':')){
                 this.cell.sheetstable.Cells(resultado[0].split(':')[0]).CreateSelectorElement(false);
                 selector=this.cell.sheetstable.Cells(resultado[0].split(':')[0]).inputconten;
@@ -1055,8 +1095,40 @@ class SheetsInput extends HTMLInputElement{
         return this.cellsintext;
     }
 
+    isFunction(){
+        const funcionpatron=/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\"[A-Za-z0-9\^\/\*\(\)\+\-]+\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/;
+        
+        if(this.cell.type!='Function' && funcionpatron.test(this.value)){
+            return true;
+        }else if(this.cell.type=='Function' && !funcionpatron.test(this.value)){
+            return false;
+        }
+        return null;
+    }
+
     #Keyinput(event){
-        this.CellTextUpdate();
+        this.deseleccion();
+        let isfun=this.isFunction();
+        if(this.value[0]=='='){
+
+            if(!this.cell.sheetstable.ctrl_clikc){
+                this.cell.sheetstable.ctrl_clikc=true;
+            }
+            this.cell.widgets=(isfun)? new SheetsWidgetCellFunction({sheetcell:this.cell}):this.cell.widgets;
+            this.CellTextUpdate();
+            if(this.cell.type=='Function' && !this.cell.widgets.selecte_conten){
+                this.cell.widgets.CreateVisualEquation();
+            }
+        }else{
+            if(this.cell.sheetstable.ctrl_clikc){
+                this.cell.sheetstable.ctrl_clikc=false;
+            }
+            if(isfun===false){
+                this.cell.widgets.InputRemove();
+                this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
+            }
+        }
+        this.cell.widgets.Inpuntkey(event);
     }
 }
 
@@ -1067,6 +1139,7 @@ class SheetsWidgetCellText{
         this.cell=sheetcell;
         this.cell.type='Text';
         this.data=data;
+        this.cell.dataset['type']='Text';
     }
 
     set data(rawdata){
@@ -1099,19 +1172,22 @@ class SheetsWidgetCellText{
         if(com){
             this.DisplayText();
         }
-        if(com && this.cell && this.cell.Events['change']){
+        return this.rawdata.value;
+    }
+
+    EventChange(){
+        if(this.cell && this.cell.Events['change']){
             for(let evento of this.cell.Events['change']){
                 evento({target:this.cell,widgets:this,cell:this.cell.address,event:'change'});
             }
         }
-        return this.rawdata.value;
     }
 
     get value(){
         return this.rawdata.value;
     }
 
-    inputclick(){
+    Inputclick(){
         if(this.cell.input){
             this.cell.input.value=this.value;
             this.cell.input.select();
@@ -1155,6 +1231,7 @@ class SheetsWidgetCellText{
             this.rawdata.DisplayText=this.NumeroFormat(valoraw,this.rawdata.digits);
         }
         this.cell.innerText=this.rawdata.DisplayText;
+        this.EventChange();
     }
 
     CheckTypeValue(value){
@@ -1178,9 +1255,7 @@ class SheetsWidgetCellText{
             if(!this.rawdata.textalign || this.rawdata.typeText!='Text'){
                 this.rawdata.textalign='center';
             }
-            if(this.cell.dataset['type']){
-                this.cell.dataset['type']='';
-            }
+            this.cell.dataset['type']='Text';
             this.rawdata.typeText='Text';
             return true;
         }else{
@@ -1207,15 +1282,7 @@ class SheetsWidgetCellText{
     }
 
     Inpuntkey(event){
-        if(this.cell.input.value[0]=='='){
-            if(!this.cell.sheetstable.ctrl_clikc){
-                this.cell.sheetstable.ctrl_clikc=true;
-            }
-        }else{
-            if(this.cell.sheetstable.ctrl_clikc){
-                this.cell.sheetstable.ctrl_clikc=false;
-            }
-        }
+        return null;
     }
 
     #CheckValue(value){
@@ -1225,6 +1292,7 @@ class SheetsWidgetCellText{
             if(this.cell.type!='Text' && value!==''){
                 this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
             }
+            this.cell.dataset['type']='Text';
             return true;
         }
         return this.CheckTypeValue(value);
@@ -1248,6 +1316,10 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
         this.Cell_Update_event=(event)=>{
             this.#CellEventUpdate(event);
         }
+
+        this.scrol_padre_elemen=(event)=>{
+            this.UpdateConten();
+        };
     }
 
     CheckTypeValue(value){
@@ -1267,10 +1339,19 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
         return true;
     }
 
+    UpdateConten(){
+        if(this.selecte_conten){
+            this.selecte_conten.style.left=this.cell.getBoundingClientRect().x+'px';
+            this.selecte_conten.style.top=(this.cell.getBoundingClientRect().y+this.cell.getBoundingClientRect().height+5)+'px';
+        }
+    }
+
     CreateList(List){
         if(!this.selecte_conten){
             this.selecte_conten=document.createElement('div');
             this.selecte_conten.className='table-sheets-list-box-selectro-contenedor';
+            this.selecte_conten.style.setProperty('--color-primario',this.cell.sheetstable.opcions.colorprimario);
+            this.UpdateConten();
         }
         this.selecte_conten.innerHTML='';
         let scope_selec=Object.fromEntries(Object.keys(this.rawdata.scope).map(key=>{
@@ -1319,8 +1400,9 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             }
             this.selecte_conten.appendChild(item);
         });
-        if(!this.cell.inputconten.contains(this.selecte_conten)){
-            this.cell.inputconten.appendChild(this.selecte_conten);
+        if(!this.cell.sheetstable.element.parentElement.contains(this.selecte_conten)){
+            this.cell.sheetstable.element.parentElement.appendChild(this.selecte_conten);
+            this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
         }
     }
 
@@ -1334,6 +1416,7 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             this.selecte_conten.remove();
             this.selecte_conten=null;
         }
+        this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
     }
 
     Serializacion(value){
@@ -1373,7 +1456,7 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             mult=-1;
             range=RangeString.slice(1);
         }
-        this.cell.sheetstable.Cells(RangeString).forEach(cell=>{
+        this.cell.sheetstable.Cells(RangeString).flat().forEach(cell=>{
             this.rawdata.list.push(((typeof cell.value)=='number')? cell.value*mult : cell.value);
             if(!this.rawdata.scope[cell.address]){
                 this.rawdata.scope[cell.address]=[];
@@ -1434,13 +1517,236 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
     }
 }
 
+class SheetsWidgetCellFunction extends SheetsWidgetCellText{
+    constructor({sheetcell=null,data={}}){
+        super({sheetcell:sheetcell,data:data});
+
+        this.rawdata=Object.assign({type:'Function', value:'',index:0,cellsEvents:{},scope:{},rawvalue:0},data);
+        this.cell.type='Function';
+        this.exprecion='';
+        this.formula='';
+        this.ecuation_document=null;
+        this.selecte_conten=null;
+        this.promise = Promise.resolve();
+        this.compile=null;
+        if(this.cell.input){
+            this.GetScope();
+        }
+
+        if(this.rawdata.cellsEvents!={}){
+            this.#Loadscope();
+        }
+
+        this.Cell_Update_event=(event)=>{
+            this.#CellEventUpdate(event);
+        }
+
+        this.scrol_padre_elemen=(event)=>{
+            this.UpdateConten();
+        };
+    }
+
+    #Loadscope(){
+        Object.keys(this.rawdata.cellsEvents).forEach(key=>{
+            let grupo = this.rawdata.cellsEvents[key];
+            grupo[0].cell.detEvent('change',this.Cell_Update_event);
+            grupo[0].cell.addEvent('change',this.Cell_Update_event);
+        });
+    }
+    #RemoveEvents(){
+        Object.keys(this.rawdata.cellsEvents).forEach(key=>{
+            let grupo = this.rawdata.cellsEvents[key];
+            grupo[0].cell.detEvent('change',this.Cell_Update_event);
+        });
+    }
+
+    GetScope(){
+        this.rawdata.scope={};
+        this.#RemoveEvents();
+        this.rawdata.cellsEvents={};
+        this.cell.input.cellsintext.forEach(selec=>{
+            if(!selec.result.includes(':')){
+                let cell=selec.selector.cell;
+                this.rawdata.scope[cell.address]=(cell.type=='Function')? cell.widgets.rawdata.rawvalue: cell.value;
+                if(!this.rawdata.cellsEvents[cell.address]){
+                    this.rawdata.cellsEvents[cell.address]=[];
+                    cell.addEvent('change',this.Cell_Update_event);
+                }
+                this.rawdata.cellsEvents[cell.address].push({rango:false,cell:cell});
+            }else{
+                this.rawdata.scope[selec.selector.dataset['seleccions'].replace(':','_')]=math.matrix(selec.selector.cellselects.map((row,k)=>{
+                    return row.map((cell,j)=>{
+                        if(!this.rawdata.cellsEvents[cell.address]){
+                            this.rawdata.cellsEvents[cell.address]=[];
+                            cell.addEvent('change',this.Cell_Update_event);
+                        }
+                        this.rawdata.cellsEvents[cell.address].push({rango:selec.selector.dataset['seleccions'].replace(':','_'),index:[k,j],cell:cell});
+                        return (cell.type=='Function')? cell.widgets.rawdata.rawvalue: cell.value;
+                    });
+                }));
+            }
+        });
+    }
+
+    CheckTypeValue(value){
+        if(value[0]!='='){
+            this.#RemoveEvents();
+            this.InputRemove();
+            this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
+            return false;
+        }
+        const funcionpatron=/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\".*\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/;
+        if(!funcionpatron.test(value)){
+           return false; 
+        }
+        this.formula=[...new Set(value.slice(1).match(/[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+/g))].reduce((t,a)=>t.replace(new RegExp(a,'g'),`${a.replace(':','_')}`),value.slice(1)).replace(/\//g,'./').replace(/\*/,'.*');
+        this.formula=[...new Set(this.formula.match(/\"[a-zA-Z0-9\*\/\^\.]+\"/g))].reduce((t,a)=>t.replace(new RegExp(a,'g'),`${a.replace(/\.\//mg,'/')}`),this.formula);
+
+        this.compile=math.compile(this.formula);
+        this.Calcular();
+        return false;
+    }
+    Calcular(){
+        this.rawdata.rawvalue=this.compile.evaluate(this.rawdata.scope);
+        console.log(this.rawdata.rawvalue);
+        if(math.typeOf(this.rawdata.rawvalue)=='number'){
+            this.rawdata.value=this.rawdata.rawvalue;
+            this.rawdata.textalign='end';
+            this.cell.dataset['type']='Text';
+        }else if(math.typeOf(this.rawdata.rawvalue)=='Unit'){
+            this.ValueUnit(this.rawdata.rawvalue);
+        }
+        //this.rawdata.value=this.compile.evaluate(this.rawdata.scope);
+        this.DisplayText();
+    }
+
+    ValueMatrix(rawvalue){
+
+    }
+
+    ValueUnit(rawvalue){
+        this.cell.dataset['unit']=rawvalue.formatUnits().replace(/ /g,'');
+        this.rawdata.textalign='left';
+        this.rawdata.value=rawvalue.toNumber();
+        this.cell.dataset['type']='Unit';
+    }
+
+    get latexExprecion(){
+        let latex = math.parse(this.exprecion).toTex();
+        return math.parse(this.exprecion).toTex();
+    }
+
+    RenderLatex(){
+        if(!this.ecuation_document){
+            return null;
+        }
+        let latex='';
+        try{
+            latex=this.latexExprecion;
+        }catch{
+            return;
+        }
+        this.typeset_latex(() => {
+            this.ecuation_document.innerHTML = '$$'+latex+'$$';
+            return [this.ecuation_document];
+        });
+    }
+
+    UpdateConten(){
+        if(this.selecte_conten){
+            this.selecte_conten.style.left=this.cell.getBoundingClientRect().x+'px';
+            this.selecte_conten.style.top=(this.cell.getBoundingClientRect().y+this.cell.getBoundingClientRect().height+5)+'px';
+        }
+    }
+
+    CreateVisualEquation(){
+        if(!this.selecte_conten){
+            this.selecte_conten=document.createElement('div');
+            this.selecte_conten.className='table-sheets-list-box-selectro-contenedor';
+            this.selecte_conten.style.setProperty('--color-primario',this.cell.sheetstable.opcions.colorprimario);
+            this.UpdateConten();
+        }
+        this.selecte_conten.innerHTML='';
+        if(!this.ecuation_documen){
+            this.ecuation_document = document.createElement('div');
+            this.ecuation_document.className='Sheet-table-equation-latex-contenedor';
+        }
+        this.selecte_conten.appendChild(this.ecuation_document);
+        if(!this.cell.sheetstable.element.parentElement.contains(this.selecte_conten)){
+            this.cell.sheetstable.element.parentElement.appendChild(this.selecte_conten);
+            this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
+        }
+        return this.ecuation_document;
+    }
+
+    Inputclick(){
+        if(this.cell.input){
+            this.cell.input.select();
+            this.cell.input.value='='+this.exprecion;
+            this.cell.input.CellTextUpdate();
+            this.GetScope();
+            this.RenderLatex();
+        }
+    }
+
+    InputCreate(){
+        this.CreateVisualEquation();
+    }
+    InputRemove(){
+        if(this.selecte_conten){
+            this.selecte_conten.remove();
+        }
+        return null;
+    }
+
+    Inpuntkey(event){
+        if(!this.cell.input.value){
+            return null;
+        }
+        this.GetScope();
+        this.exprecion=this.cell.input.value.slice(1);
+        this.RenderLatex();
+        this.cell.sheetstable.cell_str=true;
+    }
+    typeset_latex(code) {
+        this.promise = this.promise.then(() => MathJax.typesetPromise(code())).catch((err) => console.log('Typeset failed: ' + err.message));
+        return this.promise;
+    }
+
+    #CellEventUpdate(event){
+        if(this.cell.widgets!=this || !this.rawdata.cellsEvents[event.cell]){
+            event.target.detEvent(event.event,this.Cell_Update_event);
+            return;
+        }
+        this.rawdata.cellsEvents[event.cell].forEach(grup=>{
+            if(grup.rango){
+                this.rawdata.scope[grup.rango]._data[grup.index[0]][grup.index[1]]=(event.target.type=='Function')? event.target.widgets.rawdata.rawvalue: event.target.value;
+            }else{
+                this.rawdata.scope[event.cell]=(event.target.type=='Function')? event.target.widgets.rawdata.rawvalue: event.target.value;
+            }
+        });
+        this.Calcular();
+    }
+}
 function columnaindex(columIndex){
-    const abc="ABCDEFGHIJKLMNOPKRSTUVWXYZ";
+    const abc="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     if(columIndex<abc.length){
         return abc[columIndex];
     }else{
         return columnaindex(parseInt((columIndex-abc.length)/abc.length))+columnaindex(columIndex-(abc.length*(parseInt((columIndex-abc.length)/abc.length)+1)));
     }
+}
+
+function indextocolum(columna) {
+    const abc = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, 'I': 8, 'J': 9, 'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19, 'U': 20, 'V': 21, 'W': 22, 'X': 23, 'Y': 24, 'Z': 25};
+
+    // Convertir la cadena de columna a mayúsculas
+    columna = columna.toUpperCase();
+
+    return columna.split('').reduce((indice, char) => {
+        const charIndex = abc[char];
+        return indice * 26 + charIndex;
+    }, 0);
 }
 
 function check_mouse_element(event,typeElemet){

@@ -139,6 +139,9 @@
 }
 
 .table-sheets-list-box-selectro-contenedor{
+    --color-primario:rgb(0, 217, 255);
+    --select-color:color-mix(in srgb, var(--color-primario) 20%, white);
+    --select-border-color:color-mix(in srgb, var(--select-color) 60%, black);
     display: inline-block;
     max-height: 200px;
     border-radius: 4px;
@@ -148,7 +151,8 @@
     background: white;
     border: solid var(--select-border-color) 0.5px;
     overflow-y: auto;
-    margin-top: 5px;
+    position: absolute;
+    z-index: 1;
 }
 
 .table-sheet-item-selector{
@@ -205,50 +209,8 @@
     }
 }
 
-.Table-sheets-select_formula-cell::before{
-    width: var(--selec-type-with);
-    height: var(--selec-type-height);
-    content: '';
-    display: block;
-    position: absolute;
-    top:var(--selec-type-top);
-    left: var(--selec-type-left);
-    border: dashed color-mix(in srgb, var(--selec-type-color) 60%, black) 2px;
-}
-
-.table-sheets-cell-input-conten{
-    width: var(--selec-type-with);
-    height: var(--selec-type-height);
-    top:var(--selec-type-top);
-    left: var(--selec-type-left);
-    position: absolute;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    display: none;
-    border: solid color-mix(in srgb, var(--selec-type-color) 60%, black) 2px;
-    transition: 0.2s;
-}
-
-.select[data-activo="true"] .table-sheets-cell-input-conten{
-    display: flex;
-}
-
-.table-sheets-input-cell{
-    width: 100%;
-    height: 100%;
-    margin: 0px;
-    border: none;
-    background: white;
-    text-align: end;
-    font-size: var(--font-size);
-}
-
-.table-sheets-input-cell{
-    outline: none;
-}
-
-.table-sheets-cell-text-conten{
-    min-width: 100%;
-    height: 100%;
+.table-sheets-celda[data-type="Unit"]::before{
+    --float:right;
+    content: attr(data-unit);;
+    float: var(--float);
 }
