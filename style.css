@@ -23,7 +23,7 @@
 
 .table-object-sheets thead{
     position: sticky;
-    top: 0px;
+    top: 40px;
     left: 0px;
     z-index: 10;
     font-weight: bolder;
@@ -43,6 +43,8 @@
 
 .table-object-sheets thead td:nth-child(1){
     border: none;
+    position: sticky;
+    left: 0px;
 }
 
 .table-object-sheets thead td:nth-child(1):hover{
@@ -57,6 +59,7 @@
     padding: 5px;
     user-select: none;
     transition: 0.1s;
+    overflow: hidden;
 }
 
 .table-object-sheets tbody td:nth-child(1){
@@ -75,13 +78,6 @@
     background: white;
 }
 
-.table-object-sheets tbody td[type="List"]::after{
-    font-family: bootstrap-icons !important;
-    content: "\F229";
-    float: right;
-    color: gray;
-}
-
 .table-object-sheets .table-sheets-celda{
     --selec-type-color:var(--select-color);
     --selec-type-borde:solid;
@@ -91,6 +87,9 @@
     --selec-type-top:0px;
     --selec-type-left:0px;
     padding: 5px;
+    /* display: flex;
+    gap: 10px;
+    justify-content: space-between; */
 }
 
 
@@ -99,9 +98,61 @@
     border-color: color-mix(in srgb, var(--selec-type-color) 60%, black);
 }
 
+.table-object-sheets tbody td.select.matrix::after{
+    content: '';
+    display: block;
+    position: absolute;
+    width: var(--selec-type-with);
+    height: var(--selec-type-height);
+    top:var(--selec-type-top);
+    left: var(--selec-type-left);
+    background: color-mix(in srgb, var(--color-primario) 5%, #ffffff00);
+    border: solid color-mix(in srgb, var(--color-primario) 60%, rgb(0, 0, 0)) 1px;
+}
+
 .table-object-sheets tbody td:nth-child(1):hover, .table-object-sheets tbody td:nth-child(1).select , .table-object-sheets thead td.select , .table-object-sheets thead td:hover{
     background: var(--select-head-color);
     border-color: var(--select-border-color);
+}
+
+/* Diseño del pagrafo p en la celda */
+.table-sheets-celda p{
+    display: flex;
+    justify-content: space-between;
+    margin: 0px;
+    gap: 10px;
+    animation: sheet-table-cell-pagraf-animate-entrada 0.2s;
+}
+
+@keyframes sheet-table-cell-pagraf-animate-entrada {
+    0%{
+        transform: translateY(-10px);
+    }
+    100%{
+        transform: translateY(0px);
+    }
+}
+
+.table-sheets-celda[data-type="Unit"] p::after{
+    --float:right;
+    content: attr(data-datatext);
+    float: var(--float);
+}
+
+.table-object-sheets tbody td[type="List"]{
+    cursor: pointer;
+}
+
+.table-object-sheets tbody td[type="List"] p::after{
+    font-family: bootstrap-icons !important;
+    content: "\F229";
+    float: right;
+    color: rgb(82, 82, 82);
+    transition: 0.2s;
+}
+
+.table-object-sheets tbody td[type="List"]:hover p::after{
+    color: black;
 }
 
 
@@ -169,6 +220,7 @@
     padding-left: 10px;
     padding-right: 0px;
     user-select: none;
+    cursor: pointer;
 }
 
 .table-sheet-item-selector .bi{
@@ -190,11 +242,29 @@
     animation: tabla-seleccion-item-hove-animacion 0.5s;
 }
 
+.tabla-sheet-seleccion-visual-range{
+    position: absolute;
+    height: 20px;
+    left: -2px;
+    top: -22px;
+    font-size: 12px;
+    text-align: center;
+    padding-left: 4px;
+    padding-right: 4px;
+    display: grid;
+    align-items: center;
+}
+
 .Sheet-table-equation-latex-contenedor{
     min-width: 200px;
     min-height: 50px;
     padding: 20px;
     font-size: 13px;
+    pointer-events: none;
+}
+
+.Sheet-table-equation-latex-contenedor-padre{
+    opacity: 1;
 }
 
 @keyframes tabla-seleccion-item-hove-animacion{
@@ -209,8 +279,76 @@
     }
 }
 
-.table-sheets-celda[data-type="Unit"]::before{
-    --float:right;
-    content: attr(data-unit);;
-    float: var(--float);
+.table-sheets-editor-input {
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    margin: 0px;
+    border-bottom: solid var(--select-border-color) 1px;
+    border-top: none;
+    border-left: none;
+    position: sticky;
+    left: 0px;
+    top: 0px;
+    background: white;
+    z-index: 100;
+}
+
+.table-sheets-function-boton {
+    display: inline-block;
+    width: 15px;
+    padding: 10px;
+    fill: rgb(100,100,100);
+}
+
+.table-sheets-editor-input-contenedor{
+    display: flex;
+    width: calc(100% - 40px);
+    align-items: center;
+    position: relative;
+    font-size: 15px;
+    font-family: sans-serif;
+}
+
+p.table-sheets-editor-input-black {
+    width: 100%;
+    margin: 0px;
+}
+
+.table-sheets-editor-input-contenedor input{
+    position: absolute;
+    width: 97%;
+    background: transparent;
+    border: none;
+    font-size: 15px;
+    font-family: sans-serif;
+    color: transparent;
+    caret-color:black;
+}
+
+.table-sheets-editor-input-contenedor input:focus-visible{
+    outline: none;
+}
+
+.table-sheets-editor-input-barra{
+    animation: table-sheets-editor-input-barra-animacion 1s linear infinite;
+}
+
+@keyframes table-sheets-editor-input-barra-animacion {
+    0%{
+        opacity: 1;
+    }
+    49%{
+        opacity: 1;
+    }
+    50%{
+        opacity: 0;
+    }
+    99%{
+        opacity: 0;
+    }
+
+    100%{
+        opacity: 1;
+    }
 }

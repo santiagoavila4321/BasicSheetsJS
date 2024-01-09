@@ -1,23 +1,102 @@
-const SHEETS_FUNCTIONS={
-    SUM:(x)=>{
-        return math.sum(x);
-    },
-    UNIT:(a,unit)=>{
-        return math.unit(a, unit);
-    },
-    CUNIT:(a,unit)=>{
-        console.log(a);
-        return a.to(unit);
+
+//dATA LIMPIA DEL WIDGET TEXT   
+const RAW_DATA_TEXT ={
+    type:'Text',
+    value:'',
+    color:null,
+    fonsize:null,
+    textalign:'center',
+    digits:2,
+    notation:'fixed',
+    typeText:'Text',
+    DisplayText:'',
+    textedit:false
+}
+
+
+//Patrones de funciones
+const PATRON_UNIDAD = /(?:\s(?:(?:[\(]+)?(?:(?:[a-zA-Z]+|\d+\.\d+|\d+)+)(?:[\)]+)?[\/\*\^]?)+)/g
+const PATRON_STRING = /(?:[\s\,\(\[]\".*\"[\s\,\)\]])/g;
+const PATRON_NUMERIC=/(?:\d+\.\d+|\d+)/g;
+const PATRON_VARIABLES=/(?:[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+)/g;
+const PATRON_ARIMETICOS=/(?:[\+\-\*\/\^\(\[\,\]\)])/g;
+
+const MATRIXFUNTION=(x,a,f)=>{
+    if(math.typeOf(x)=='DenseMatrix'){
+        if(math.typeOf(a)=='DenseMatrix'){
+            if((x.size()[0]==a.size()[0] && x.size()[1]==a.size()[1])){
+                return x.map((i,k)=>{
+                    return f(i,a.get(k));
+                });
+            }else{
+                throw new Error('Las dimenciones no son iguales '+ x.size() +' != '+ a.size());
+            }
+        }else{
+            return x.map(i=>{
+                return f(i,a);
+            });
+        }
     }
+    return f(x,a);
+};
+const FUNCIONES2=(x,f)=>{
+    if(math.typeOf(x)=='DenseMatrix'){
+        return x.map(i=>{
+            return f(i);
+        });
+    }
+    return f(x);
 };
 
-SHEETS_FUNCTIONS.SUM.toTex='\\sum{\\left(${args}\\right)}';
-SHEETS_FUNCTIONS.CUNIT.toTex=function(node, options){
-    return node.args[0].toTex(options)+'_{\\text{unit}\\rightarrow'+node.args[1].toTex(options).replace(/"/g,'');
-}
-SHEETS_FUNCTIONS.UNIT.toTex=function(node, options){
-    return node.args[0].toTex(options)+'\\text{ }'+node.args[1].toTex(options).replace(/"/g,'');
+const SHEETS_FUNCTIONS={
+    //funciones
+    RAIZ:(x)=>{return FUNCIONES2(x,math.sqrt);},
+    POW:(x,a)=>{return MATRIXFUNTION(x,a,math.pow);},
+    LN:(x)=>{return FUNCIONES2(x,math.log);},
+    LOG10:(x)=>{return FUNCIONES2(x,math.log10);},
+    LOG:(x,a)=>{return MATRIXFUNTION(x,a,math.log);},
+    ABS:(x)=>{return FUNCIONES2(x,math.abs);},
+
+    //Trigonometria
+    COS:(x)=>{return FUNCIONES2(x,math.cos);},
+    SIN: (x)=>{return FUNCIONES2(x,math.sin);},
+    TAN: (x)=>{return FUNCIONES2(x,math.tan);},
+    COSH:(x)=>{return FUNCIONES2(x,math.cosh);},
+    SINH: (x)=>{return FUNCIONES2(x,math.sinh);},
+    TANH: (x)=>{return FUNCIONES2(x,math.tanh);},
+
+    //ESTADISTICOS
+    SUM:(x)=>{return math.sum(x);},
+    PROD:(x)=>{return math.prod(x);},
+    INDEX:(mx,i,j)=>{return mx.get([i-1,j-1]);},
+    MAX:(x)=>{return math.max(x);},
+    MIN:(x)=>{return math.min(x);},
+    PROMEDIO:(x)=>{return math.mean(x)}
+
 };
+
+SHEETS_FUNCTIONS.RAIZ.toTex='\\sqrt{${args}}';
+SHEETS_FUNCTIONS.POW.toTex='${args[0]}^{${args[1]}}';
+SHEETS_FUNCTIONS.LN.toTex='\\ln{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.LOG10.toTex='\\log_{10}{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.LOG.toTex='\\log_{${args[1]}}{\\left(${args[0]}\\right)}';
+SHEETS_FUNCTIONS.ABS.toTex='\\left|${args}\\right|';
+
+SHEETS_FUNCTIONS.COS.toTex='\\cos{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.SIN.toTex='\\sin{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.TAN.toTex='\\tan{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.COSH.toTex='\\cosh{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.SINH.toTex='\\sinh{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.TANH.toTex='\\tanh{\\left(${args}\\right)}';
+
+SHEETS_FUNCTIONS.SUM.toTex='\\sum{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.PROD.toTex='\\prod{\\left(${args}\\right)}';
+SHEETS_FUNCTIONS.INDEX.toTex='\\text{${args[0]}}_{${args[1]},${args[2]}}';
+SHEETS_FUNCTIONS.MAX.toTex='\\text{max}\\left(${args}\\right)';
+SHEETS_FUNCTIONS.MIN.toTex='\\text{min}\\left(${args}\\right)';
+SHEETS_FUNCTIONS.PROMEDIO.toTex='\\text{promedio}\\left(${args}\\right)';
+
+
 
 math.import(SHEETS_FUNCTIONS);
 
@@ -28,16 +107,28 @@ class SheetsTable{
     _cellselect=null;
     constructor({element,opcions={},data=null}){
         //Creador de elementos
+        //Elmento contenedor
         this.element=document.createElement('div');
         this.element.className='table-conten-sheets';
+
+        //Elemento input editor superior
+        this.superiorinput=new SheetEditoInput({sheetstable:this});
+        this.element.appendChild(this.superiorinput);
+
+        //Elemento tabla
         this.table=document.createElement('table');
         this.table.className='table-object-sheets';
         this.table.appendChild(document.createElement('thead'));
         this.table.appendChild(document.createElement('tbody'));
         this.TableHead.appendChild(document.createElement('td'));
         this.element.appendChild(this.table);
+
+        //Contenedror de de los elemento selectores
         this.SelectorConten=document.createElement('div');
         this.element.appendChild(this.SelectorConten);
+
+
+
         this.ctrl_clikc=false;
         this.inputelement=null;
         this.id=element.id;
@@ -52,11 +143,11 @@ class SheetsTable{
             SheetWidgetsCells:{
                 value: [{
                     type:'List',
-                    invocacion:/^=List\(((?<rango>[A-z]{1,3}\d+\:[A-z]{1,3}\d+)|(?<lista>(\[-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|\".*\"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)(,-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|\".*\"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+))*\])))\)$/,
+                    invocacion:/^-List\(((?<rango>[A-z]{1,3}\d+\:[A-z]{1,3}\d+)|(?<lista>(\[-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|"([^"]*)"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)(,-?(\d+\.\d+|\d+|[A-Z]{1,3}\d+|"([^"]*)"|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+))*\])))\)$/,
                     widgets: SheetsWidgetCellList
                 },{
                     type:'Function',
-                    invocacion:/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\"[A-Za-z0-9\^\/\*\(\)\+\-]+\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/,
+                    invocacion:/^\=.+$/,
                     widgets: SheetsWidgetCellFunction
                 },{
                     type:'Text',
@@ -91,6 +182,8 @@ class SheetsTable{
         this.element.addEventListener('mousemove',this.#mousemovetable.bind(this));
         this.element.addEventListener('mousedown',this.#mousedown.bind(this));
         this.element.addEventListener('mouseup',this.#mouseup.bind(this));
+        this.TableBody.addEventListener('focus', ()=>{null});
+        this.TableBody.addEventListener('blur', ()=>{this._mousemove=false;});
         document.addEventListener('keydown',this.keydown);
         document.addEventListener('keyup',this.keyup);
 
@@ -98,6 +191,7 @@ class SheetsTable{
         element.appendChild(this.element);
     }
 
+    //cuando se cambia la celda seleccionada
     set cellselect(cell){
         if(!this.ctrl_clikc){
             Array.from(this.element.querySelectorAll('.tabla-sheet-seleccion')).forEach(selectorElement=>{
@@ -151,11 +245,11 @@ class SheetsTable{
         }else if(range instanceof  Array){
             //Buscamos por coordenadas en un rango [rango1,rango2]
             if((range[0] instanceof Array) && range.length==2){
-                return this.#selecs_cels(this.Rows[range[0][0]].childNodes[range[0][1]],this.Rows[range[1][0]].childNodes[range[1][1]]);
+                return this.#selecs_cels(this.Rows[range[0][0]].childNodes[range[0][1]+1],this.Rows[range[1][0]].childNodes[range[1][1]+1]);
             
             //Buscamos por coorenadas [2 , 4]
             }else if((typeof range[0])=='number'){
-                return this.Rows[range[0]].childNodes[range[1]];
+                return this.Rows[range[0]].childNodes[range[1]+1];
             }
         //si no hay expreción devuleve todas la celdas
         }else if(range===undefined){
@@ -322,6 +416,12 @@ class SheetsTable{
     #key_up(event){
         if(!this.inputelement){
             this.ctrl_clikc=event.ctrlKey;
+        }else{
+            this.inputelement.cell.widgets.Inpuntkey(event);
+            if(!this.superiorinput.activo){
+                this.superiorinput.inputeditor.value=this.inputelement.value;
+                this.superiorinput.InputChang(null);
+            }
         }
     }
     #key_down(event){
@@ -330,6 +430,8 @@ class SheetsTable{
         }
         if(event.shiftKey){
             if(this.#Arrow_press(event.key)){
+                event.stopPropagation();
+                event.preventDefault();
                 return;
             }
         }
@@ -376,6 +478,111 @@ class SheetsTable{
             return true;
         }
         return false;
+    }
+}
+
+class SheetEditoInput extends HTMLDivElement{
+    constructor({sheetstable=null}){
+        super();
+        
+        this.sheetstable=sheetstable;
+        this.activo=false;
+
+        this.className='table-sheets-editor-input';
+        this.functionBoton=document.createElement('div');
+        this.functionBoton.className='table-sheets-function-boton';
+        this.functionBoton.innerHTML='<svg viewBox="0 0 142.51 142.51"><path d="M34.367 142.51c11.645 0 17.827-10.4 19.645-16.544.029-.097.056-.196.081-.297 4.236-17.545 10.984-45.353 15.983-65.58h17.886a6.09 6.09 0 100-12.18H73.103c1.6-6.373 2.771-10.912 3.232-12.461l.512-1.734c1.888-6.443 6.309-21.535 13.146-21.535 6.34 0 7.285 9.764 7.328 10.236.27 3.343 3.186 5.868 6.537 5.579a6.089 6.089 0 005.605-6.539c-.569-7.423-5.376-21.459-19.472-21.459-15.961 0-21.953 20.458-24.832 30.292l-.49 1.659c-.585 1.946-2.12 7.942-4.122 15.962H39.239c-3.364 0-6.09 2.726-6.09 6.09s2.726 6.09 6.09 6.09H57.53c-6.253 25.362-14.334 58.815-15.223 62.498-.332.965-2.829 7.742-7.937 7.742-7.8 0-11.177-10.948-11.204-11.03a6.083 6.083 0 00-7.544-4.156 6.092 6.092 0 00-4.156 7.545c2.131 7.361 9.35 19.822 22.901 19.822zM124.68 126.81c3.589 0 6.605-2.549 6.605-6.607 0-1.885-.754-3.586-2.359-5.474l-12.646-14.534 12.271-14.346c1.132-1.416 1.98-2.926 1.98-4.908 0-3.59-2.927-6.231-6.703-6.231-2.547 0-4.527 1.604-6.229 3.684l-9.531 12.454-9.343-12.456c-1.89-2.357-3.869-3.682-6.7-3.682-3.59 0-6.607 2.551-6.607 6.609 0 1.885.756 3.586 2.357 5.471l11.799 13.592-12.932 15.289c-1.227 1.416-1.98 2.926-1.98 4.908 0 3.589 2.926 6.229 6.699 6.229 2.549 0 4.53-1.604 6.229-3.682l10.19-13.4 10.193 13.4c1.894 2.363 3.876 3.684 6.707 3.684z"/></svg>';
+        this.appendChild(this.functionBoton);
+
+        let inputcontenerdor=document.createElement('div');
+        inputcontenerdor.className='table-sheets-editor-input-contenedor';
+        this.inputback=document.createElement('p');
+        this.inputback.className='table-sheets-editor-input-black';
+        inputcontenerdor.appendChild(this.inputback);
+        this.inputeditor=document.createElement('input');
+        inputcontenerdor.appendChild(this.inputeditor);
+        this.inputeditor.addEventListener('input',this.InputEvent.bind(this));
+        this.inputeditor.addEventListener('mousedown',this.InputClick.bind(this))
+        this.inputeditor.addEventListener('focus', ()=>{this.activo=true;});
+        this.inputeditor.addEventListener('blur', ()=>{this.activo=false;});
+        this.inputeditor.addEventListener('keydown',this.keydown.bind(this));
+        this.inputeditor.addEventListener('keypress',this.keypress.bind(this))
+        this.appendChild(inputcontenerdor);
+    }
+
+    keypress(event){
+        if(event.key==='Enter'){
+            this.sheetstable.inputelement.cell.widgets.readinput();
+            this.sheetstable.ctrl_clikc=false;
+            this.sheetstable.deseleccion();
+            return;
+        }
+    }
+
+    keydown(event){
+        if(event.key==='Delete'){
+            event.stopPropagation();
+        }
+        if(event.key==='Escape'){
+            this.sheetstable.ctrl_clikc=false;
+            this.sheetstable.deseleccion();
+            return;
+        }
+    }
+
+    InputEvent(event){
+        if(this.sheetstable.inputelement){
+            this.InputChang();
+            this.sheetstable.inputelement.value=this.inputeditor.value;
+            this.sheetstable.inputelement.InputUpdate();
+        }else{
+            event.preventDefault();
+            this.inputeditor.value='';
+        }
+    }
+
+    set value(val){
+        this.inputeditor.value=val;
+        this.InputChang();
+    }
+    get value(){
+        return this.inputeditor.value;
+    }
+
+    InputChang(){
+        if(this.inputeditor.value[0]!='=' && this.inputeditor.value[0]!='-'){
+            this.inputback.innerText=this.inputeditor.value;
+            return;
+        }
+        const patron = /\((?:[^()]*)\)/g;
+        let text=this.inputeditor.value;
+        let result = text.match(patron);
+        let index=0;
+        let parentesis=[];
+        while(result){
+            result.forEach(r=>{
+                parentesis.splice(0,0,[r,'$_'+index]);
+                parentesis.splice(0,0,[r,'$_'+index]);
+                text=text.replace(r,'$_'+index);
+                index++;
+            });
+            result = text.match(patron);
+        }
+        parentesis.forEach((paren,k)=>{
+            let tem_tex=`<span style="color:${colorsecuencia(k)}">(</span>`+paren[0].slice(1,-1)+`<span style="color:${colorsecuencia(k)}">)</span>`;
+            text=text.replace(paren[1],tem_tex);
+        });
+        [... new Set(text.match(PATRON_VARIABLES))].forEach((variable,k)=>{
+            text=text.replaceAll(variable,`<span style="color:${colorsecuencia(k)}">${variable}</span>`);
+        });
+        this.inputback.innerHTML=text;
+    }
+
+    InputClick(event){
+        if(this.sheetstable.inputelement && event.button==0){
+            event.stopPropagation();
+            //event.preventDefault();
+        }
     }
 }
 
@@ -517,6 +724,7 @@ class SheetsColum extends HTMLTableCellElement{
 
 class SheetsCell extends HTMLTableCellElement{
     _selecolor='';
+    _widget=null;
     constructor({sheetstable=null,row=0,colum=0,value={type:'Text',value:''}}){
         super();
         //DEfino los parametros de tabla 
@@ -533,8 +741,47 @@ class SheetsCell extends HTMLTableCellElement{
         this.input=null;
         this.Events={};
         this.widgets=new SheetsWidgetCellText({sheetcell:this,data:value});
+        this.datatext='';
+        this.paragrafelement=null;
         //this.DefaultStylePropertys();
     }
+
+    set widgets(widget){
+        if(this._widget){
+            this._widget.rawdata.type=this.type;
+            this._widget.RemoveWidget();
+            widget.rawdata=widget.RawDataChange(widget.rawdata,this._widget.rawdata);
+        }
+        this._widget=widget;
+    }
+
+    get widgets(){
+        return this._widget;
+    }
+
+    set innerText(val){
+        if(val==='' || val ===null || val===undefined){
+            super.innerHTML='';
+            this.datatext='';
+            this.paragrafelement=null;
+            return '';
+        }
+        super.innerHTML='';
+        this.paragrafelement=document.createElement('p');
+        this.paragrafelement.innerText=val;
+        this.paragrafelement.dataset['datatext']=this.datatext;
+        this.appendChild(this.paragrafelement);
+        return val;
+    }
+
+    get innerText(){
+        if(this.paragrafelement){
+            return this.paragrafelement.innerText;
+        }else{
+            return '';
+        }
+    }
+
     set select(selec){
         if(selec){
             if(!this.classList.contains('select')){
@@ -593,10 +840,24 @@ class SheetsCell extends HTMLTableCellElement{
     }
 
     addEvent(evento,funcion){
+        if(!funcion){
+            return null;
+        }
         if(!this.Events[evento]){
             this.Events[evento]=[];
         }
-        this.Events[evento].push(funcion);
+        let existefuntion=false;
+        Array.from(this.Events[evento]).forEach((ev,k)=>{
+            if(!ev){
+                this.Events[evento].splice(k,1);
+            }
+            if(ev==funcion){
+                existefuntion=true;
+            }
+        });
+        if(!existefuntion){
+            this.Events[evento].push(funcion);
+        }
     }
 
     detEvent(evento,funcion){
@@ -632,10 +893,7 @@ class SheetsCell extends HTMLTableCellElement{
 
     UpdateStylePropertys(Cell1,Cell2){
         if(this.inputconten){
-            this.inputconten.style.left=(Cell1.getBoundingClientRect().x- 2 - this.sheetstable.table.getBoundingClientRect().x)+'px';
-            this.inputconten.style.top=(Cell1.getBoundingClientRect().y- 2 - this.sheetstable.table.getBoundingClientRect().y)+'px';
-            this.inputconten.style.width=(Cell2.getBoundingClientRect().x - Cell1.getBoundingClientRect().x + Cell2.getBoundingClientRect().width-1)+'px';
-            this.inputconten.style.height=(Cell2.getBoundingClientRect().y - Cell1.getBoundingClientRect().y +  Cell2.getBoundingClientRect().height-1)+'px';
+            this.inputconten.UpdateStylePropertys(Cell1,Cell2);
         }
     }
 
@@ -812,16 +1070,18 @@ class SheetsSelector extends HTMLDivElement{
         this.cell=sheetcell;
         this.isCellcreado=isCellcreado;
         this.className='tabla-sheet-seleccion';
+        this.VisulRange=document.createElement('div');
+        this.VisulRange.className='tabla-sheet-seleccion-visual-range';
 
         if(this.cell.sheetstable.SelectorConten.childNodes.length==0){
             this.color=this.cell.sheetstable.opcions.colorprimario;
         }else{
             this.color=colorsecuencia(this.cell.sheetstable.SelectorConten.childNodes.length-1);
         }
+        this.appendChild(this.VisulRange);
         this.cell.sheetstable.SelectorConten.appendChild(this);
         this.SelectorVisual=false;
         this.cellselects=[[this.cell]];
-        this.Matrix=[];
 
         //Identificador de borde solido o con trazos
         this.move=false;
@@ -830,7 +1090,7 @@ class SheetsSelector extends HTMLDivElement{
 
     UpdateStylePropertys(Cell1,Cell2){
         this.style.left=(Cell1.getBoundingClientRect().x- 2 - this.cell.sheetstable.table.getBoundingClientRect().x)+'px';
-        this.style.top=(Cell1.getBoundingClientRect().y- 2 - this.cell.sheetstable.table.getBoundingClientRect().y)+'px';
+        this.style.top=(Cell1.getBoundingClientRect().y- 2 - this.cell.sheetstable.table.getBoundingClientRect().y+40)+'px';
         this.style.width=(Cell2.getBoundingClientRect().x - Cell1.getBoundingClientRect().x + Cell2.getBoundingClientRect().width-1)+'px';
         this.style.height=(Cell2.getBoundingClientRect().y - Cell1.getBoundingClientRect().y +  Cell2.getBoundingClientRect().height-1)+'px';
     }
@@ -855,6 +1115,7 @@ class SheetsSelector extends HTMLDivElement{
         if(val!=this._color){
             this.style['border-color']=`color-mix(in srgb, ${val} 60%, black)`;
             this.style['background']=`color-mix(in srgb, ${val} 10%, rgba(255,255,255,0))`;
+            this.VisulRange.style.background=`color-mix(in srgb, ${val} 30%, white)`;
             this._color=val;
         }
         return this._color;
@@ -885,20 +1146,31 @@ class SheetsSelector extends HTMLDivElement{
         } else{
             this.dataset['seleccions']=this._selects[0][0].address;
         }
+        this.VisulRange.innerText=this.dataset['seleccions'];
 
         if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
             this.InpuAddRange();
+            if(this.cell.sheetstable.superiorinput.activo){
+                this.cell.sheetstable.superiorinput.InputChang();
+                this.cell.sheetstable.inputelement.value=this.cell.sheetstable.superiorinput.value;
+            }else{
+                this.cell.sheetstable.superiorinput.value=this.cell.sheetstable.inputelement.value;
+            }
         }
         
         return this.dataset['seleccions'];
     }
 
     InpuAddRange(){
-        if(this.cell.sheetstable.inputelement.selectionStart<1 && this.cell.sheetstable.inputelement.value[0]!='='){
+        let input=this.cell.sheetstable.inputelement;
+        if(this.cell.sheetstable.superiorinput.activo){
+            input=this.cell.sheetstable.superiorinput.inputeditor;
+        }
+        if(input.selectionStart<1 && input.value[0]!='='){
             return;
         }
         this.SelectorVisual=true;
-        let selectionStart=this.cell.sheetstable.inputelement.selectionStart;
+        let selectionStart=input.selectionStart;
         let select=null;
 
         for(let celltext of this.cell.sheetstable.inputelement.cellsintext){
@@ -909,9 +1181,9 @@ class SheetsSelector extends HTMLDivElement{
         }
 
         if(!select){
-            let text=this.cell.sheetstable.inputelement.value.slice(0,selectionStart);
-            let test2=this.cell.sheetstable.inputelement.value.slice(selectionStart);
-            this.cell.sheetstable.inputelement.value=text+this.dataset['seleccions']+test2;
+            let text=input.value.slice(0,selectionStart);
+            let test2=input.value.slice(selectionStart);
+            input.value=text+this.dataset['seleccions']+test2;
 
             this.cell.sheetstable.inputelement.cellsintext.forEach(celtext=>{
                 if(celtext.index>text.length){
@@ -920,15 +1192,15 @@ class SheetsSelector extends HTMLDivElement{
             });
 
             this.cell.sheetstable.inputelement.cellsintext.push({index:text.length,result:this.dataset['seleccions'],selector:this});
-            this.cell.sheetstable.inputelement.focus();
-            this.cell.sheetstable.inputelement.setSelectionRange(text.length+this.dataset['seleccions'].length,text.length+this.dataset['seleccions'].length);
+            input.focus();
+            input.setSelectionRange(text.length+this.dataset['seleccions'].length,text.length+this.dataset['seleccions'].length);
             return;
         }
         this.color=select.selector.color;
-        let text=this.cell.sheetstable.inputelement.value.slice(0,select.index);
-        let test2=this.cell.sheetstable.inputelement.value.slice(select.index+select.result.length);
+        let text=input.value.slice(0,select.index);
+        let test2=input.value.slice(select.index+select.result.length);
         let disferenacia=this.dataset['seleccions'].length-select.result.length;
-        this.cell.sheetstable.inputelement.value=text+this.dataset['seleccions']+test2;
+        input.value=text+this.dataset['seleccions']+test2;
         select.result=this.dataset['seleccions'];
         this.cell.sheetstable.inputelement.cellsintext.forEach(celtext=>{
             if(celtext.index>select.index){
@@ -937,8 +1209,8 @@ class SheetsSelector extends HTMLDivElement{
         });
         if(select.selector!=this){select.selector.remove();select.selector=this;}
         //this.cell.sheetstable.inputelement.CellTextUpdate(select);
-        this.cell.sheetstable.inputelement.focus();
-        this.cell.sheetstable.inputelement.setSelectionRange(select.index+this.dataset['seleccions'].length,select.index+this.dataset['seleccions'].length);
+        input.focus();
+        input.setSelectionRange(select.index+this.dataset['seleccions'].length,select.index+this.dataset['seleccions'].length);
     }
 
     CellSelects(){
@@ -973,6 +1245,7 @@ class SheetsSelector extends HTMLDivElement{
         if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
             this.cell.sheetstable.inputelement.cell.widgets.Inpuntkey(event);
         }
+        this.cell.sheetstable.cellselect2=this._selects.flat().slice(-1)[0];
     }
 }
 
@@ -985,14 +1258,26 @@ class SheetsInput extends HTMLInputElement{
         this.addEventListener('mousedown',(event)=>{event.stopPropagation()});
         this.addEventListener('mouseup',(event)=>{event.stopPropagation()});
         this.value=this.cell.value;
-        this.addEventListener('input',this.#Keyinput.bind(this));
+        this.addEventListener('input',this.Keyinput.bind(this));
         this.cell.sheetstable.inputelement=this;
         this.cellsintext=[];
+    }
+
+    set value(val){
+        if(!this.cell.sheetstable.superiorinput.activo){
+            this.cell.sheetstable.superiorinput.value=val;
+        }
+        return super.value=val;
+    }
+
+    get value(){
+        return super.value;
     }
 
     remove(){
         this.cell.sheetstable.inputelement=null;
         this.cell.widgets.InputRemove();
+        this.cell.sheetstable.superiorinput.value='';
         super.remove();
     }
 
@@ -1071,75 +1356,89 @@ class SheetsInput extends HTMLInputElement{
         if(this.cellsintext.length>0){
             this.cellsintext=[];
         }
+
     }
+
+
     CellTextUpdate(){
-        const patron=/([A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)|([A-Z]{1,3}\d+)/mg;
+        const patron=PATRON_VARIABLES;
         let resultado=patron.exec(this.value);
         this.cellsintext=[];
         while(resultado){
             let selector=null;
             let objectoText={};
             if(resultado[0].includes(':')){
-                this.cell.sheetstable.Cells(resultado[0].split(':')[0]).CreateSelectorElement(false);
-                selector=this.cell.sheetstable.Cells(resultado[0].split(':')[0]).inputconten;
-                selector.cellselects=this.cell.sheetstable.Cells(resultado[0]);
+                let cells=this.cell.sheetstable.Cells(resultado[0].split(':')[0]);
+
+                if(!cells){
+                    return null;
+                }
+                if(cells!=this.cell){
+                    cells.CreateSelectorElement(false);
+                    selector=cells.inputconten;
+                    selector.cellselects=this.cell.sheetstable.Cells(resultado[0]);
+                }
             }else{
-                this.cell.sheetstable.Cells(resultado[0]).CreateSelectorElement(false);
-                selector=this.cell.sheetstable.Cells(resultado[0]).inputconten;
+                let cells=this.cell.sheetstable.Cells(resultado[0].split(':')[0]);
+
+                if(!cells){
+                    return null;
+                }
+                if(cells!=this.cell){
+                    cells.CreateSelectorElement(false);
+                    selector=cells.inputconten;
+                }
             }
-            selector.SelectorVisual=true;
-            selector={index:resultado.index,result:resultado[0],selector:selector};
-            this.cellsintext.push(selector);
+            if(selector!==null){
+                selector.SelectorVisual=true;
+                selector={index:resultado.index,result:resultado[0],selector:selector};
+                this.cellsintext.push(selector);
+            }
             resultado=patron.exec(this.value);
         }
         return this.cellsintext;
     }
 
-    isFunction(){
-        const funcionpatron=/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\"[A-Za-z0-9\^\/\*\(\)\+\-]+\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/;
-        
-        if(this.cell.type!='Function' && funcionpatron.test(this.value)){
-            return true;
-        }else if(this.cell.type=='Function' && !funcionpatron.test(this.value)){
-            return false;
-        }
-        return null;
-    }
-
-    #Keyinput(event){
+    InputUpdate(){
         this.deseleccion();
-        let isfun=this.isFunction();
-        if(this.value[0]=='='){
-
+        if(this.value[0]=='=' || this.value[0]=='-'){
+            this.CellTextUpdate();
             if(!this.cell.sheetstable.ctrl_clikc){
                 this.cell.sheetstable.ctrl_clikc=true;
-            }
-            this.cell.widgets=(isfun)? new SheetsWidgetCellFunction({sheetcell:this.cell}):this.cell.widgets;
-            this.CellTextUpdate();
-            if(this.cell.type=='Function' && !this.cell.widgets.selecte_conten){
-                this.cell.widgets.CreateVisualEquation();
             }
         }else{
             if(this.cell.sheetstable.ctrl_clikc){
                 this.cell.sheetstable.ctrl_clikc=false;
             }
-            if(isfun===false){
-                this.cell.widgets.InputRemove();
-                this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
-            }
         }
         this.cell.widgets.Inpuntkey(event);
+    }
+
+    Keyinput(event){
+        this.InputUpdate();
     }
 }
 
 
 // Widget para las Celdas
 class SheetsWidgetCellText{
-    constructor({sheetcell=null,data={type:'Text', value:''}}){
+    constructor({sheetcell=null,data={}}){
+        this.rawdata=Object.assign({},RAW_DATA_TEXT);
         this.cell=sheetcell;
         this.cell.type='Text';
-        this.data=data;
-        this.cell.dataset['type']='Text';
+        if(Object.keys(data).length>0){
+            this.data=data;
+        }
+        this.typeText='Text';
+    }
+
+    set typeText(val){
+        this.cell.dataset['type']=val;
+        this.rawdata.typeText=val;
+    }
+
+    get typeText(){
+        return this.rawdata.typeText;
     }
 
     set data(rawdata){
@@ -1150,16 +1449,14 @@ class SheetsWidgetCellText{
 
                     if(!(this instanceof widgetType.widgets) || widgetType.type=='Text'){
                         this.cell.widgets=new widgetType.widgets({
-                            sheetcell:this.cell,
-                            data:rawdata
+                            sheetcell:this.cell
                         });
-                        return;
                     }
-                    break;
+                    return;
                 }
             }
         }
-        this.rawdata=Object.assign((this.rawdata)?this.rawdata:{},rawdata);
+        this.rawdata=this.RawDataChange(this.rawdata,rawdata);
         this.value=this.rawdata.value;
     }
 
@@ -1194,43 +1491,102 @@ class SheetsWidgetCellText{
         }
     }
 
+    RawDataChange(prototype,data){
+        let dataprototype={};
+        Object.keys(prototype).forEach(key=>{
+            if(data[key]){
+                dataprototype[key]=data[key];
+            }else{
+                dataprototype[key]=prototype[key];
+            }
+        });
+        return dataprototype;
+    }
+
     readinput(){
         if(this.cell.input){
             this.value=this.cell.input.value;
         }
     }
 
-    NumeroFormat(num,digits){
-        let valoraw = (num+'').split('.');
-        if(!valoraw[1]){
-            valoraw.push('0');
+    StyleUpdate(){
+        if(this.rawdata.fonsize && this.cell.style['font-size']!=this.rawdata.fonsize+'px'){
+            this.cell.style['font-size']=this.rawdata.fonsize+'px';
         }
-        for(let k=0;k<digits-valoraw[1].length;k++){
-            valoraw[1]=valoraw[1]+'0';
+
+        if(this.rawdata.color && this.cell.style['background']!=this.rawdata.color){
+            this.cell.style['background']==this.rawdata.color;
         }
-        return valoraw.join('.');
+
+        if(this.cell.paragrafelement && this.rawdata.textalign && this.cell.paragrafelement.style['justify-content']!=this.rawdata.textalign){
+            this.cell.paragrafelement.style['justify-content']=this.rawdata.textalign;
+        }
+    }
+
+    NumeroFormat(num,digits=2,notation='fixed'){
+        if(math.typeOf(num)=='string'){
+            return num;
+        }
+        let valor=num;
+        if(math.typeOf(valor)=='Unit'){
+            valor=num.toNumeric();
+        }
+        return math.format(valor, (value)=>{
+            return math.format(value,  {notation: notation, precision: digits});
+        });
+    }
+
+    TextTypeCheck(value){
+        let data=[0,'end','Text','',false];
+        if(math.typeOf(value)=='number'){
+            data[0]=value;
+            data[2]=(!this.IsEntero(value))? 'Numero': 'Entero';
+            data[1]='end';
+            data[4]=true;
+        }else if(math.typeOf(value)=='Unit'){
+            data=this.ValueUnit(value);
+        }else if(math.typeOf(value)=='Complex'){
+            data=this.ValueComplex(value);
+        }else if(math.typeOf(value)=='string'){
+            data[0]=value;
+            data[1]='center';
+            data[4]=true;
+        }else{
+            data[0]='#NAME';
+            data[1]='center';
+            data[4]=true;
+        }
+        return data;
+    }
+
+    ValueComplex(rawvalue){
+        let data=[rawvalue,'end','Complex','',false];
+        return data;
+    }
+
+    ValueUnit(rawvalue){
+        let data=[0,'space-between','Unit','',false];
+        data[3]=rawvalue.formatUnits().replace(/\s\/\s/g,'/').replace(/ /g,'*').replace(/deg/g,'°');
+        data[0]=rawvalue;
+        this.rawdata.textedit=false;
+        return data;
     }
 
     DisplayText(){
-        this.cell.style['text-align']=(this.rawdata.textalign)? this.rawdata.textalign:'';
-        this.cell.style['font-size']=(this.rawdata.fonsize)? this.rawdata.fonsize+'px':'';
-        this.cell.style['background']=(this.rawdata.color)? this.rawdata.color: '';
-
-        if(this.rawdata.digits==0){
-            this.rawdata.typeText=='Entero';
-        }
-
+        let datastyle=this.TextTypeCheck(this.rawdata.value);
+        this.cell.datatext=datastyle[3];
+        this.rawdata.value=datastyle[0];
+        this.typeText=datastyle[2];
+        this.rawdata.textalign=(!datastyle[4] && this.rawdata.textedit)? this.rawdata.textalign: datastyle[1];
+        
         this.rawdata.DisplayText=this.rawdata.value;
-
-        if((typeof this.rawdata.value)=='number' && this.rawdata.typeText!='Entero'){
-            if(!this.rawdata.digits){
-                this.rawdata.digits=2;
-            }
-            let valoraw=(Math.round(this.rawdata.value*(10**this.rawdata.digits))/(10**this.rawdata.digits))+'';
-
-            this.rawdata.DisplayText=this.NumeroFormat(valoraw,this.rawdata.digits);
+        let digits=this.rawdata.digits;
+        if(this.rawdata.typeText=='Entero'){
+            digits=0;
         }
+        this.rawdata.DisplayText=this.NumeroFormat(this.rawdata.value,digits,this.rawdata.notation);
         this.cell.innerText=this.rawdata.DisplayText;
+        this.StyleUpdate();
         this.EventChange();
     }
 
@@ -1252,26 +1608,21 @@ class SheetsWidgetCellText{
         if(isNaN(Number(value))){
             this.rawdata.value=value;
             this.rawdata.DisplayText=value;
-            if(!this.rawdata.textalign || this.rawdata.typeText!='Text'){
+            if(this.rawdata.typeText!='Text'){
                 this.rawdata.textalign='center';
             }
-            this.cell.dataset['type']='Text';
-            this.rawdata.typeText='Text';
             return true;
         }else{
             this.rawdata.value=Number(value);
-            if(!this.rawdata.textalign || this.rawdata.typeText=='Text'){
+            if(this.rawdata.typeText=='Numero' || this.rawdata.typeText=='Entero'){
                 this.rawdata.textalign='end';
-            }
-            if(!this.rawdata.typeText || this.rawdata.typeText=='Text' || (!this.IsEntero(value) && this.rawdata.typeText=='Entero')){
-                this.rawdata.typeText=(!this.IsEntero(value))? 'Numero': 'Entero';
             }
             return true;
         }
     }
 
     IsEntero(num){
-        return !((num+'').split('.').length>1);
+        return math.isInteger(num);
     }
 
     InputCreate(){
@@ -1282,7 +1633,20 @@ class SheetsWidgetCellText{
     }
 
     Inpuntkey(event){
+        if(this.cell.input && this.cell.input.value[0]=='='){
+            for(let widgetType of this.cell.sheetstable.SheetWidgetsCells){
+                if(widgetType.invocacion.test(this.cell.input.value) && widgetType.type!=this.cell.type){
+                    this.cell.widgets=new widgetType.widgets({sheetcell:this.cell});
+                    this.cell.widgets.Serializacion(this.cell.input.value);
+                    return false;
+                }
+            }
+        }
         return null;
+    }
+
+    RemoveWidget(){
+        return false;
     }
 
     #CheckValue(value){
@@ -1292,7 +1656,7 @@ class SheetsWidgetCellText{
             if(this.cell.type!='Text' && value!==''){
                 this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
             }
-            this.cell.dataset['type']='Text';
+            this.typeText='Text';
             return true;
         }
         return this.CheckTypeValue(value);
@@ -1300,15 +1664,15 @@ class SheetsWidgetCellText{
 }
 
 class SheetsWidgetCellList extends SheetsWidgetCellText{
-    constructor({sheetcell=null,data={type:'List', value:'',list:[''],index:0}}){
+    constructor({sheetcell=null,data={}}){
         super({sheetcell:sheetcell,data:data});
 
-        this.rawdata.textalign='left';
+        let prototype_rawdata=Object.assign(this.rawdata,{type:'List',list:[''],index:0,scope:{}});
+        this.rawdata=this.RawDataChange(prototype_rawdata,data);
         this.cell.type='List';
         this.selecte_conten=null;
-        if(!this.rawdata.scope){
-            this.rawdata.scope={};
-        }else{
+
+        if(this.rawdata.scope=={}){
             this.#Loadscope();
         }
         this.DisplayText();
@@ -1322,18 +1686,25 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
         };
     }
 
+    DisplayText(){
+        if(this.rawdata.textalign!='space-between'){
+            this.rawdata.textalign='space-between';
+        }
+        super.DisplayText();
+    }
+
     CheckTypeValue(value){
         if(isNaN(parseInt(value))){
             return false;
         }
         if(value<this.rawdata.list.length){
             this.rawdata.index=value;
-            this.rawdata.value=this.rawdata.list[value];
+            this.rawdata.value=(this.rawdata.list[value])? this.rawdata.list[value]: '-';
             this.rawdata.DisplayText=this.rawdata.list[value];
             if((typeof this.rawdata.value)=='number'){
-                this.rawdata.typeText=(!this.IsEntero(this.rawdata.value))? 'Numero': 'Entero';
+                this.typeText=(!this.IsEntero(this.rawdata.value))? 'Numero': 'Entero';
             }else{
-                this.rawdata.typeText='Text';
+                this.typeText='Text';
             }
         }
         return true;
@@ -1366,7 +1737,7 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             let itemincono=document.createElement('i');
             itemincono.className='bi bi-caret-right-square-fill';
             let spantext=document.createElement('span');
-            spantext.innerText=((typeof a.value)=='number' && !this.IsEntero(a.value))? this.NumeroFormat(typeof a.value,2): a.value;
+            spantext.innerText=((math.typeOf(a.value))=='number' && !this.IsEntero(a.value))? this.NumeroFormat(a.value,2): a.value;
             item.className='table-sheet-item-selector';
             item.dataset['index']=a.index;
 
@@ -1416,12 +1787,19 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             this.selecte_conten.remove();
             this.selecte_conten=null;
         }
-        this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
+        this.cell.sheetstable.element.removeEventListener('scroll',this.scrol_padre_elemen);
+    }
+
+    RemoveWidget(){
+        this.rawdata.textalign='center';
+        this.typeText='Text';
+        this.cell.sheetstable.element.removeEventListener('scroll',this.scrol_padre_elemen);
+        return false;
     }
 
     Serializacion(value){
-        const patron = /(?<text>\".*\")|(?<rango>\-?[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)|(?<cell>\-?[A-Z]{1,3}\d+)|(?<numero>\-?\d+\.\d+)|(?<entero>-?\d+)/g;
-        let textoserializar=value.replace(/=List|\(|\)|\[|\]/g,'');
+        const patron = /(?<text>"([^"]*)")|(?<rango>\-?[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+)|(?<cell>\-?[A-Z]{1,3}\d+)|(?<numero>\-?\d+\.\d+)|(?<entero>-?\d+)/g;
+        let textoserializar=value.replace(/-List|\(|\)/g,'');
         this.rawdata.list=[];
         this.rawdata.scope={};
         let resultado=patron.exec(textoserializar);
@@ -1491,7 +1869,7 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
         if(!data){
             return;
         }
-        this.rawdata.list.push(this.#CheckItemType(data.replace(/\"/mg,'')));
+        this.rawdata.list.push(this.#CheckItemType(data.replace(/\"/g,'')));
     }
 
     #CheckItemType(value){
@@ -1518,74 +1896,159 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
 }
 
 class SheetsWidgetCellFunction extends SheetsWidgetCellText{
+    _ismatrix=false;
     constructor({sheetcell=null,data={}}){
         super({sheetcell:sheetcell,data:data});
+        let prototype_rawdata=Object.assign(this.rawdata,{
+            type:'Function',
+            cellsEvents:{},
+            scope:{},
+            rawvalue:0,
+            error:''
+        });
+        this.rawdata=this.RawDataChange(prototype_rawdata,data);
 
-        this.rawdata=Object.assign({type:'Function', value:'',index:0,cellsEvents:{},scope:{},rawvalue:0},data);
         this.cell.type='Function';
         this.exprecion='';
         this.formula='';
         this.ecuation_document=null;
         this.selecte_conten=null;
         this.promise = Promise.resolve();
+        this.promise
         this.compile=null;
-        if(this.cell.input){
-            this.GetScope();
-        }
+        this.recurcividad={'existe':false};
+        this.ismatrix=false;
+        this.matrix_last_cell=null;
 
-        if(this.rawdata.cellsEvents!={}){
-            this.#Loadscope();
-        }
+        this.#Loadscope();
 
         this.Cell_Update_event=(event)=>{
             this.#CellEventUpdate(event);
-        }
+        };
+
+        this.Cell_Update_Matrix=(event)=>{
+            this.#CellEventMatrixUpdate(event);
+        };
 
         this.scrol_padre_elemen=(event)=>{
             this.UpdateConten();
         };
+
+        this.OpacityEquation=(event)=>{
+            this.VisualEquationOpacity(event);
+        };
+
+        if(this.cell.input){
+            this.GetScope();
+            this.CreateVisualEquation();
+        }
+    }
+
+    set ismatrix(val){
+        if(val){
+            if(!this.cell.classList.contains('matrix')){
+                this.cell.classList.add('matrix');
+            }
+            let left=(this.cell.getBoundingClientRect().x- 1 - this.cell.sheetstable.table.getBoundingClientRect().x)+'px';
+            let top=(this.cell.getBoundingClientRect().y- 1 - this.cell.sheetstable.table.getBoundingClientRect().y+40)+'px';
+            let width=(this.matrix_last_cell.getBoundingClientRect().x - this.cell.getBoundingClientRect().x + this.matrix_last_cell.getBoundingClientRect().width-0.5)+'px';
+            let height=(this.matrix_last_cell.getBoundingClientRect().y - this.cell.getBoundingClientRect().y +  this.matrix_last_cell.getBoundingClientRect().height-0.5)+'px';
+            this.cell.style.setProperty('--selec-type-with',width);
+            this.cell.style.setProperty('--selec-type-height',height);
+            this.cell.style.setProperty('--selec-type-top',top);
+            this.cell.style.setProperty('--selec-type-left',left);
+        }else{
+            if(this.cell.classList.contains('matrix')){
+                this.cell.classList.remove('matrix');
+                this.cell.style.setProperty('--selec-type-with','');
+                this.cell.style.setProperty('--selec-type-height','');
+                this.cell.style.setProperty('--selec-type-top','');
+                this.cell.style.setProperty('--selec-type-left','');
+            }
+        }
+        return this._ismatrix=val;
+    }
+
+    get ismatrix(){
+        return this._ismatrix;
     }
 
     #Loadscope(){
         Object.keys(this.rawdata.cellsEvents).forEach(key=>{
             let grupo = this.rawdata.cellsEvents[key];
-            grupo[0].cell.detEvent('change',this.Cell_Update_event);
-            grupo[0].cell.addEvent('change',this.Cell_Update_event);
+            grupo[0].cell.detEvent('change',grupo[0].event);
+            grupo[0].cell.addEvent('change',grupo[0].event);
         });
     }
     #RemoveEvents(){
         Object.keys(this.rawdata.cellsEvents).forEach(key=>{
             let grupo = this.rawdata.cellsEvents[key];
-            grupo[0].cell.detEvent('change',this.Cell_Update_event);
+            grupo[0].cell.detEvent('change',grupo[0].event);
+
+            let isequal=(math.typeOf(grupo[0].value)==math.typeOf(grupo[0].cell.widgets.value)) && math.equal(grupo[0].value,grupo[0].cell.widgets.value);
+            if(grupo[0].event==this.Cell_Update_Matrix && grupo[0].cell.type=='Text' && isequal){
+                grupo[0].cell.value='';
+            }
         });
+        this.rawdata.cellsEvents={};
     }
 
     GetScope(){
         this.rawdata.scope={};
         this.#RemoveEvents();
-        this.rawdata.cellsEvents={};
-        this.cell.input.cellsintext.forEach(selec=>{
-            if(!selec.result.includes(':')){
-                let cell=selec.selector.cell;
-                this.rawdata.scope[cell.address]=(cell.type=='Function')? cell.widgets.rawdata.rawvalue: cell.value;
+        let iscelleconten=false;
+        let result=this.exprecion.match(PATRON_VARIABLES);
+        let tabla=this.cell.sheetstable;
+        if(!result){
+            return;
+        }
+        result.forEach(selec=>{
+            if(!selec.includes(':')){
+                let cell=tabla.Cells(selec);
+                if(cell==this.cell){
+                    iscelleconten=true;
+                    return;
+                }
+                this.rawdata.scope[cell.address]=(cell.type=='Function' && !cell.widgets.ismatrix)? cell.widgets.rawdata.rawvalue: cell.value;
                 if(!this.rawdata.cellsEvents[cell.address]){
                     this.rawdata.cellsEvents[cell.address]=[];
                     cell.addEvent('change',this.Cell_Update_event);
                 }
-                this.rawdata.cellsEvents[cell.address].push({rango:false,cell:cell});
+                this.rawdata.cellsEvents[cell.address].push({rango:false,cell:cell,event:this.Cell_Update_event});
             }else{
-                this.rawdata.scope[selec.selector.dataset['seleccions'].replace(':','_')]=math.matrix(selec.selector.cellselects.map((row,k)=>{
+                this.rawdata.scope[selec.replace(':','_')]=math.matrix(tabla.Cells(selec).map((row,k)=>{
                     return row.map((cell,j)=>{
+                        if(cell==this.cell){
+                            iscelleconten=true;
+                            return;
+                        }
                         if(!this.rawdata.cellsEvents[cell.address]){
                             this.rawdata.cellsEvents[cell.address]=[];
                             cell.addEvent('change',this.Cell_Update_event);
                         }
-                        this.rawdata.cellsEvents[cell.address].push({rango:selec.selector.dataset['seleccions'].replace(':','_'),index:[k,j],cell:cell});
-                        return (cell.type=='Function')? cell.widgets.rawdata.rawvalue: cell.value;
+                        this.rawdata.cellsEvents[cell.address].push({rango:selec.replace(':','_'),index:[k,j],cell:cell,event:this.Cell_Update_event});
+                        return (cell.type=='Function' && !cell.widgets.ismatrix)? cell.widgets.rawdata.rawvalue: cell.value;
                     });
                 }));
             }
         });
+        if(iscelleconten){
+            this.#RemoveEvents();
+            this.rawdata.scope={};
+            this.rawdata.scope[this.cell.address]='';
+            return; 
+        }
+    }
+
+    ErrorCalc(error){
+        this.rawdata.rawvalue=null;
+        this.rawdata.value="#REF";
+        this.rawdata.error=error;
+        this.rawdata.textalign='center';
+        this.typeText='Text';
+        this.DisplayText();
+        this.rawdata.value=null;
+        console.error('Error durante la evaluación:',error);
     }
 
     CheckTypeValue(value){
@@ -1595,45 +2058,136 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
             return false;
         }
-        const funcionpatron=/^\=(?:(?:\.)?(?:[\+\-\*\/\^])?(?:[\(\[]+)?(?:[A-Z]+(?:[\(])|[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+|[A-Z]{1,3}\d+|\d+\.\d+|\d+|\".*\")(?:[\)\]]+)?(?:[\,])?(?:[\)\]]+)?)+$/;
-        if(!funcionpatron.test(value)){
-           return false; 
+        this.recurcividad=this.Findscope(this.rawdata.scope,this.cell.address);
+        if(this.recurcividad.existe){
+            this.ErrorCalc('Dependencia circular: No puede contener las misma celda en la formula');
+            return false;
         }
-        this.formula=[...new Set(value.slice(1).match(/[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+/g))].reduce((t,a)=>t.replace(new RegExp(a,'g'),`${a.replace(':','_')}`),value.slice(1)).replace(/\//g,'./').replace(/\*/,'.*');
-        this.formula=[...new Set(this.formula.match(/\"[a-zA-Z0-9\*\/\^\.]+\"/g))].reduce((t,a)=>t.replace(new RegExp(a,'g'),`${a.replace(/\.\//mg,'/')}`),this.formula);
+        this.formula=[...new Set(value.slice(1).match(/[A-Z]{1,3}\d+\:[A-Z]{1,3}\d+/g))].reduce((t,a)=>t.replace(new RegExp(a,'g'),`${a.replace(':','_')}`),value.slice(1)).replace(/\//g,'./').replace(/\*/,'.*').replace(/\^/g,'.^');
 
-        this.compile=math.compile(this.formula);
+        try {
+            this.compile=math.compile(this.formula);
+        } catch (error) {
+            this.ErrorCalc(error.message);
+            return false;
+        }
         this.Calcular();
         return false;
     }
-    Calcular(){
-        this.rawdata.rawvalue=this.compile.evaluate(this.rawdata.scope);
-        console.log(this.rawdata.rawvalue);
-        if(math.typeOf(this.rawdata.rawvalue)=='number'){
-            this.rawdata.value=this.rawdata.rawvalue;
-            this.rawdata.textalign='end';
-            this.cell.dataset['type']='Text';
-        }else if(math.typeOf(this.rawdata.rawvalue)=='Unit'){
-            this.ValueUnit(this.rawdata.rawvalue);
+    Findscope(scope,address){
+        if(!scope){
+            return {'existe':false};
         }
-        //this.rawdata.value=this.compile.evaluate(this.rawdata.scope);
+        for(let cell_addres of Object.keys(scope)){
+            if(cell_addres==address){
+                return {'existe':true,'cell':this.cell.sheetstable.Cells(cell_addres)};
+            }
+            if(cell_addres.includes('_')){
+                for(let cell of this.cell.sheetstable.Cells(cell_addres.replace('_',':')).flat()){
+                    if(cell.address==address){
+                        return {'existe':true,'cell':cell};
+                    }
+                    let result =this.Findscope(cell.widgets.rawdata.scope,address);
+                    if(result.existe){
+                        return result;
+                    }
+                }
+                continue;
+            }
+            let cell = this.cell.sheetstable.Cells(cell_addres);
+            let result =this.Findscope(cell.widgets.rawdata.scope,address);
+            if(result.existe){
+                return result;
+            }
+        }
+        return {'existe':false};
+    }
+    Calcular(){
+        this.ismatrix=false;
+        if(this.recurcividad.existe){
+            return this.CheckTypeValue('='+this.exprecion);
+        }
+        try {
+            this.rawdata.rawvalue=this.compile.evaluate(this.rawdata.scope);
+            if(this.rawdata.rawvalue===null || this.rawdata.rawvalue===undefined){
+                throw new Error('Valor nulo o no encontrado');
+            }
+        } catch (error) {
+            this.ErrorCalc(error.message);
+            return false;
+        }
+        this.rawdata.error=false;
+        this.rawdata.value=this.rawdata.rawvalue;
+        if(math.typeOf(this.rawdata.rawvalue)=='DenseMatrix'){
+            this.ValueMatrix(this.rawdata.rawvalue);
+        }
         this.DisplayText();
     }
 
     ValueMatrix(rawvalue){
+        let row=this.cell.row;
+        let colum=this.cell.colum;
+        let size_matrix=rawvalue.size();
+        let sheetstable=this.cell.sheetstable;
+        if(!(size_matrix[0]+row-1<sheetstable.opcions.rows && size_matrix[1]+colum-1<sheetstable.opcions.columns.length)){
+            this.rawdata.value='#DES';
+            return;
+            //=[[1,2],[2,4]]
+        }
+        let des=false;
+        for(let i=0;i<size_matrix[0];i++){
+            for(let k=0;k<size_matrix[1];k++){
+                if(i==0 && k==0){
+                    continue;
+                }
+                let cell = sheetstable.Cells([i+row,k+colum]);
+                if(i==size_matrix[0]-1 && k==size_matrix[1]-1){
+                    this.matrix_last_cell=cell;
+                }
+                cell.detEvent('change',this.Cell_Update_Matrix);
+                let datavalue=rawvalue.get([i,k]);
+                if(this.rawdata.cellsEvents[cell.address] && this.rawdata.cellsEvents[cell.address].length>0 && this.rawdata.cellsEvents[cell.address][0].value){
+                    datavalue=this.rawdata.cellsEvents[cell.address][0].value;
+                }
+                let isequal=(math.typeOf(datavalue)==math.typeOf(cell.widgets.value)) && math.equal(datavalue,cell.widgets.value);
 
-    }
-
-    ValueUnit(rawvalue){
-        this.cell.dataset['unit']=rawvalue.formatUnits().replace(/ /g,'');
-        this.rawdata.textalign='left';
-        this.rawdata.value=rawvalue.toNumber();
-        this.cell.dataset['type']='Unit';
+                if((cell.type!='Text' || (cell.type=='Text' && (cell.value!='' && !isequal))) && !des){
+                    this.rawdata.value='#DES';
+                    des=true;
+                    i=0;
+                    k=0;
+                    continue;
+                }
+                if(!des){
+                    cell.widgets.value=rawvalue.get([i,k]);
+                    cell.widgets.DisplayText();
+                }else{
+                    isequal=(math.typeOf(rawvalue.get([i,k]))==math.typeOf(cell.widgets.value)) && math.equal(rawvalue.get([i,k]),cell.widgets.value);
+                    if(cell.type=='Text' && isequal){
+                        cell.widgets.rawdata.value='';
+                        cell.widgets.DisplayText();
+                    }
+                }
+                this.rawdata.cellsEvents[cell.address]=[{rango:false,cell:cell,event:this.Cell_Update_Matrix,i:i,k:k,value:rawvalue.get([i,k])}];
+                cell.addEvent('change',this.Cell_Update_Matrix);
+            }
+        }
+        if(!des){
+            this.rawdata.value=rawvalue.get([0,0]);
+        }
+        this.ismatrix=true;
     }
 
     get latexExprecion(){
-        let latex = math.parse(this.exprecion).toTex();
-        return math.parse(this.exprecion).toTex();
+        if(this.exprecion!=''){
+            let textexprecion=math.parse(this.exprecion.replaceAll(':','_ñ_')).toTex().replaceAll('\\_ñ\\_',':');
+            [... new Set(textexprecion.match(PATRON_VARIABLES))].forEach((variable,k)=>{
+                textexprecion=textexprecion.replaceAll(variable,`\\textcolor{${colorsecuencia(k)}}{${variable}}`);
+            });
+            return textexprecion;
+        }else{
+            return '';
+        }
     }
 
     RenderLatex(){
@@ -1654,8 +2208,39 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
 
     UpdateConten(){
         if(this.selecte_conten){
+            this.selecte_conten.style.transition='0s';
             this.selecte_conten.style.left=this.cell.getBoundingClientRect().x+'px';
             this.selecte_conten.style.top=(this.cell.getBoundingClientRect().y+this.cell.getBoundingClientRect().height+5)+'px';
+        }
+    }
+
+    VisualEquationOpacity(event){
+        if(!this.selecte_conten){
+            this.cell.sheetstable.element.removeEventListener('mousemove',this.OpacityEquation);
+        }
+        let element = this.selecte_conten;
+        let x_m=event.clientX;
+        let y_m=event.clientY;
+        let x_e=element.getBoundingClientRect().x;
+        let y_e=element.getBoundingClientRect().y;
+        if(x_m>x_e && x_m<x_e+element.getBoundingClientRect().width && y_m>y_e && y_m<y_e+element.getBoundingClientRect().height && element.style.opacity!='0.5'){
+            this.selecte_conten.style.transition='0.2s';
+            element.style.opacity='0.4';
+        }else if(element.style.opacity=='0.4' && !(x_m>x_e && x_m<x_e+element.getBoundingClientRect().width && y_m>y_e && y_m<y_e+element.getBoundingClientRect().height)){
+            element.style.opacity='';
+            this.selecte_conten.style.transition='0s';
+        }
+    }
+
+    RemoveVisualEquation(){
+        this.cell.sheetstable.element.removeEventListener('scroll',this.scrol_padre_elemen);
+        this.cell.sheetstable.element.removeEventListener('mousemove',this.OpacityEquation);
+        if(this.selecte_conten){
+            this.selecte_conten.remove();
+            this.selecte_conten=null;
+        }
+        if(this.ecuation_documen){
+            this.ecuation_documen=null;
         }
     }
 
@@ -1664,6 +2249,9 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.selecte_conten=document.createElement('div');
             this.selecte_conten.className='table-sheets-list-box-selectro-contenedor';
             this.selecte_conten.style.setProperty('--color-primario',this.cell.sheetstable.opcions.colorprimario);
+            this.selecte_conten.classList.add('Sheet-table-equation-latex-contenedor-padre');
+            this.selecte_conten.style.pointerEvents='none';
+            this.cell.sheetstable.element.addEventListener('mousemove',this.OpacityEquation);
             this.UpdateConten();
         }
         this.selecte_conten.innerHTML='';
@@ -1680,8 +2268,8 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
     }
 
     Inputclick(){
+        super.Inputclick();
         if(this.cell.input){
-            this.cell.input.select();
             this.cell.input.value='='+this.exprecion;
             this.cell.input.CellTextUpdate();
             this.GetScope();
@@ -1693,24 +2281,56 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
         this.CreateVisualEquation();
     }
     InputRemove(){
-        if(this.selecte_conten){
-            this.selecte_conten.remove();
-        }
+        this.RemoveVisualEquation();
         return null;
     }
 
+    Serializacion(value){
+        this.exprecion=value.slice(1);
+        this.GetScope();
+        this.CheckTypeValue(value);
+    }
+
     Inpuntkey(event){
-        if(!this.cell.input.value){
+        if(!this.cell.input){
             return null;
         }
-        this.GetScope();
+        if(this.cell.input.value[0]!='='){
+            this.#RemoveEvents();
+            this.RemoveVisualEquation();
+            this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
+            this.cell.sheetstable.cell_str=false;
+            return null;
+        }
         this.exprecion=this.cell.input.value.slice(1);
+        this.GetScope();
         this.RenderLatex();
         this.cell.sheetstable.cell_str=true;
     }
     typeset_latex(code) {
-        this.promise = this.promise.then(() => MathJax.typesetPromise(code())).catch((err) => console.log('Typeset failed: ' + err.message));
+        this.promise = this.promise.then(() => MathJax.typesetPromise(code())).catch((err) => console.error('Typeset failed: ' + err.message));
         return this.promise;
+    }
+
+    RemoveWidget(){
+        this.RemoveVisualEquation();
+        this.ismatrix=false;
+        return null;
+    }
+    #CellEventMatrixUpdate(event){
+        if(this.cell.widgets!=this || !this.rawdata.cellsEvents[event.cell] || !math.typeOf(this.rawdata.rawvalue)=='DenseMatrix'){            
+            event.target.detEvent(event.event,this.Cell_Update_Matrix);
+            return;
+        }
+        let isequal=(math.typeOf(event.target.widgets.value)==math.typeOf(this.rawdata.cellsEvents[event.cell][0].value)) && math.equal(event.target.widgets.value,this.rawdata.cellsEvents[event.cell][0].value);
+        if(isequal){
+            return;
+        }
+
+        this.ValueMatrix(this.rawdata.rawvalue);
+        this.TextTypeCheck(this.rawdata.value);
+        this.DisplayText();
+
     }
 
     #CellEventUpdate(event){
@@ -1718,11 +2338,22 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             event.target.detEvent(event.event,this.Cell_Update_event);
             return;
         }
+        let value=event.target.value;
+        if(event.target.type=='Function' && !event.target.widgets.ismatrix){
+            if(event.target.widgets.recurcividad.existe){
+                return;
+            }
+            value=event.target.widgets.rawdata.rawvalue;
+        }else{
+            if(event.target.innerText=='#REF'){
+                return;
+            }
+        }
         this.rawdata.cellsEvents[event.cell].forEach(grup=>{
             if(grup.rango){
-                this.rawdata.scope[grup.rango]._data[grup.index[0]][grup.index[1]]=(event.target.type=='Function')? event.target.widgets.rawdata.rawvalue: event.target.value;
+                this.rawdata.scope[grup.rango]._data[grup.index[0]][grup.index[1]]=value;
             }else{
-                this.rawdata.scope[event.cell]=(event.target.type=='Function')? event.target.widgets.rawdata.rawvalue: event.target.value;
+                this.rawdata.scope[event.cell]=value;
             }
         });
         this.Calcular();
@@ -1763,8 +2394,30 @@ function colorsecuencia(index){
     return `rgb(${colors[index%colors.length][0]},${colors[index%colors.length][1]},${colors[index%colors.length][2]})`;
 }
 
+function generarIdAleatorio() {
+    const alfabetoConNumeros = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const longitudSeccion = 4;
+    let idAleatorio = '';
+
+    // Generar tres secciones de cuatro caracteres cada una
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < longitudSeccion; j++) {
+            const indice = Math.floor(Math.random() * alfabetoConNumeros.length);
+            idAleatorio += alfabetoConNumeros.charAt(indice);
+        }
+
+        // Agregar un guion después de cada sección
+        if (i < 2) {
+            idAleatorio += '-';
+        }
+    }
+
+    return idAleatorio;
+}
+
 customElements.define('sheets-colum', SheetsColum, { extends: 'td' });
 customElements.define('sheets-cell', SheetsCell, { extends: 'td' });
 customElements.define('sheets-rows', SheetsRow, { extends: 'tr' });
 customElements.define('sheets-input', SheetsInput, { extends: 'input' });
 customElements.define('sheets-selector', SheetsSelector, { extends: 'div' });
+customElements.define('sheets-editor-input', SheetEditoInput, { extends: 'div' });
