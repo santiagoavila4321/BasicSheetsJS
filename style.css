@@ -108,6 +108,7 @@
     left: var(--selec-type-left);
     background: color-mix(in srgb, var(--color-primario) 5%, #ffffff00);
     border: solid color-mix(in srgb, var(--color-primario) 60%, rgb(0, 0, 0)) 1px;
+    pointer-events: none;
 }
 
 .table-object-sheets tbody td:nth-child(1):hover, .table-object-sheets tbody td:nth-child(1).select , .table-object-sheets thead td.select , .table-object-sheets thead td:hover{

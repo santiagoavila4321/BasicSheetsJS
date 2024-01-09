@@ -3,7 +3,7 @@
 const RAW_DATA_TEXT ={
     type:'Text',
     value:'',
-    color:null,
+    color:'#FFFFFF',
     fonsize:null,
     textalign:'center',
     digits:2,
@@ -737,6 +737,7 @@ class SheetsCell extends HTMLTableCellElement{
         
         this.addEventListener('mousedown',this.#mouse_down_event);
         this.addEventListener('mouseup',this.#mouse_up_event);
+        this.addEventListener('contextmenu',this.ClickMenu.bind(this));
 
         this.input=null;
         this.Events={};
@@ -931,6 +932,9 @@ class SheetsCell extends HTMLTableCellElement{
     }
 
     #mouse_down_event(event){
+        if(event.button!=0){
+            return;
+        }
         let cell=check_mouse_element(event,SheetsCell);
         //guarda los datos en la celda y deselecciona
         if(this.sheetstable.cellselect && this.sheetstable.cellselect!=cell && !this.sheetstable.ctrl_clikc){
@@ -958,6 +962,9 @@ class SheetsCell extends HTMLTableCellElement{
     }
 
     #mouse_up_event(event){
+        if(event.button!=0){
+            return;
+        }
         let cell= check_mouse_element(event,SheetsCell);
         if(this.sheetstable._mousemove){
             this.sheetstable._mousemove=false;
@@ -974,6 +981,117 @@ class SheetsCell extends HTMLTableCellElement{
             this.select=true;
         }
         event.preventDefault();
+    }
+
+    ClickMenu(event){
+        console.log();
+        event.stopPropagation();
+        event.preventDefault();
+        DropMenu([event.clientX-5,event.clientY-5],this.#ClicDropMenu());
+    }
+
+    #ClicDropMenu(){
+        let inputcolor=document.createElement('div');
+        inputcolor.className='menu-dropdown-item';
+        let color=document.createElement('input');
+        color.style='border-block: none;border: none;background: none;';
+        color.addEventListener('change',(event)=>{
+            this.widgets.rawdata.color=color.value;
+            this.widgets.DisplayText();
+        });
+        let text=document.createElement('label');
+        text.innerText='Color';
+        inputcolor.appendChild(text);
+        inputcolor.appendChild(color);
+        color.value=this.widgets.rawdata.color;
+        color.setAttribute('type','color');
+        inputcolor.addEventListener('click',(event)=>{
+            event.stopPropagation();
+        });
+        let celda=this;
+        return [
+            [
+                {'incon':'bi-copy','text':'Copiar','function':function(event){console.log(this.text);}},
+                {'incon':'bi-clipboard-fill','text':'Pegar','function':function(event){console.log(this.text);}},
+                {'incon':'bi-scissors','text':'Cortar','function':function(event){console.log(this.text);}}
+            ],
+            [
+                {
+                    'incon':'bi-123',
+                    'text':'Formato',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Lineal','function':function(event){
+                                    celda.widgets.rawdata.notation='fixed';
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                            {'incon':'','text':'Exponencial','function':function(event){
+                                    celda.widgets.rawdata.notation='exponential';
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                            {'incon':'','text':'Ingeneria','function':function(event){
+                                    celda.widgets.rawdata.notation='engineering';
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                        ]
+                    ]
+                },
+                {
+                    incon:'bi-justify',
+                    text:'Alineación',
+                    'submenu':[
+                        [
+                            {'incon':'bi-text-left','text':'Izquierda','function':function(event){
+                                    celda.widgets.rawdata.textalign='left';
+                                    celda.widgets.rawdata.textedit=true;
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                            {'incon':'bi-text-center','text':'Centrado','function':function(event){
+                                    celda.widgets.rawdata.textalign='center';
+                                    celda.widgets.rawdata.textedit=true;
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                            {'incon':'bi-text-right','text':'Derecha','function':function(event){
+                                    celda.widgets.rawdata.textalign='end';
+                                    celda.widgets.rawdata.textedit=true;
+                                    celda.widgets.DisplayText();
+                                }
+                            }
+                        ]
+                    ]
+                },
+                {
+                    'incon':'decimales',
+                    'text':'Decimales',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Añadir decimales','function':function(event){
+                                    celda.widgets.rawdata.digits++;
+                                    celda.widgets.DisplayText();
+                                }
+                            },
+                            {'incon':'','text':'Quitar decimales','function':function(event){
+                                    celda.widgets.rawdata.digits--;
+                                    celda.widgets.DisplayText();
+                                }
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                {
+                    'incon':'bi-palette-fill',
+                    'text':'',
+                    'elemento':inputcolor
+                }
+            ]
+        ];
     }
 }
 
@@ -1086,6 +1204,14 @@ class SheetsSelector extends HTMLDivElement{
         //Identificador de borde solido o con trazos
         this.move=false;
         this.addEventListener('mouseup',this.#Mouseup.bind(this));
+        this.addEventListener('mousedown',(event)=>{
+            if(event.button==2){
+                event.stopPropagation();
+                event.preventDefault();
+            }
+        });
+        this.addEventListener('contextmenu',this.#MouseDropMenu.bind(this));
+
     }
 
     UpdateStylePropertys(Cell1,Cell2){
@@ -1247,6 +1373,221 @@ class SheetsSelector extends HTMLDivElement{
         }
         this.cell.sheetstable.cellselect2=this._selects.flat().slice(-1)[0];
     }
+
+    #MouseDropMenu(event){
+        event.stopPropagation();
+        event.preventDefault();
+        this.cell.sheetstable.ctrl_clikc=true;
+        DropMenu([event.clientX-5,event.clientY-5],this.#ClicDropMenu());
+    }
+
+    #ClicDropMenu(){
+        let inputcolor=document.createElement('div');
+        inputcolor.className='menu-dropdown-item';
+        let color=document.createElement('input');
+        color.style='border-block: none;border: none;background: none;';
+        color.addEventListener('change',(event)=>{
+            this.cellselects.flat().forEach(cell=>{
+                cell.widgets.rawdata.color=color.value;
+                cell.widgets.DisplayText();
+            });
+        });
+        let text=document.createElement('label');
+        text.innerText='Color';
+        inputcolor.appendChild(text);
+        inputcolor.appendChild(color);
+        color.value='#FFFFFF';
+        color.setAttribute('type','color');
+        inputcolor.addEventListener('click',(event)=>{
+            event.stopPropagation();
+        });
+        let selector=this;
+        return [
+            [
+                {'incon':'bi-copy','text':'Copiar','function':function(event){console.log(this.text);}},
+                {'incon':'bi-clipboard-fill','text':'Pegar','function':function(event){console.log(this.text);}},
+                {'incon':'bi-scissors','text':'Cortar','function':function(event){console.log(this.text);}}
+            ],
+            [
+                {
+                    'incon':'bi-123',
+                    'text':'Formato',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Lineal','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='fixed';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Exponencial','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='exponential';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Ingeneria','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='engineering';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                        ]
+                    ]
+                },
+                {
+                    incon:'bi-justify',
+                    text:'Alineación',
+                    'submenu':[
+                        [
+                            {'incon':'bi-text-left','text':'Izquierda','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='left';
+                                        cell.widgets.DisplayText();
+                                        cell.widgets.rawdata.textedit=true;
+                                    });
+                                    
+                                }
+                            },
+                            {'incon':'bi-text-center','text':'Centrado','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='center';
+                                        cell.widgets.DisplayText();
+                                        cell.widgets.rawdata.textedit=true;
+                                    });
+                                    
+                                }
+                            },
+                            {'incon':'bi-text-right','text':'Derecha','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='end';
+                                        cell.widgets.DisplayText();
+                                        cell.widgets.rawdata.textedit=true;
+                                    });
+                                    
+                                }
+                            }
+                        ]
+                    ]
+                },
+                {
+                    'incon':'decimales',
+                    'text':'Decimales',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Añadir decimales','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.digits++;
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Quitar decimales','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.digits--;
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                {
+                    'incon':'bi-grid-3x3',
+                    'text':'Cuadricula',
+                    'submenu':[
+                        [
+                            {'incon':'bi-border-all','text':'Borde all','function':function(event){
+                                    selector.cellselects.forEach((row,i)=>{
+                                        row.forEach((cell,k)=>{
+                                            if(i==0){
+                                                let cel2= cell.sheetstable.Cells([cell.row-1,cell.colum]);
+                                                cel2.style['border-bottom-color']='black';
+                                            }
+                                            if(k==0){
+                                                let cel2= cell.sheetstable.Cells([cell.row,cell.colum-1]);
+                                                cel2.style['border-right-color']='black';
+                                            }
+                                            cell.style['border-color']='black';
+                                        });
+                                    });
+                                }
+                            },
+                            {'incon':'bi-border','text':'No borde','function':function(event){
+                                    selector.cellselects.forEach((row,i)=>{
+                                        row.forEach((cell,k)=>{
+                                            if(i==0){
+                                                let cel2= cell.sheetstable.Cells([cell.row-1,cell.colum]);
+                                                cel2.style['border-bottom-color']='';
+                                            }
+                                            if(k==0){
+                                                let cel2= cell.sheetstable.Cells([cell.row,cell.colum-1]);
+                                                cel2.style['border-right-color']='';
+                                            }
+                                            cell.style['border-color']='';
+                                        });
+                                    });
+                                }
+                            },
+                            {'incon':'bi-border-left','text':'Borde Izquierdo','function':function(event){
+                                    selector.cellselects.forEach((row,i)=>{
+                                        let cel2= row[0].sheetstable.Cells([row[0].row,row[0].colum-1]);
+                                        cel2.style['border-right-color']='black';
+                                    });
+                                }
+                            },
+                            {'incon':'bi-border-right','text':'Borde Derecho','function':function(event){
+                                    selector.cellselects.forEach((row,i)=>{
+                                        row[row.length-1].style['border-right-color']='black';
+                                    });
+                                },
+                            },
+                            {'incon':'bi-border-top','text':'Borde Superior','function':function(event){
+                                    selector.cellselects[0].forEach((cell,i)=>{
+                                        let cel2=cell.sheetstable.Cells([cell.row-1,cell.colum]);
+                                        cel2.style['border-bottom-color']='black';
+                                    });
+                                },
+                            },
+                            {'incon':'bi-border-bottom','text':'Borde Inferior','function':function(event){
+                                    selector.cellselects[selector.cellselects.length-1].forEach((cell,i)=>{
+                                        cell.style['border-bottom-color']='black';
+                                    });
+                                },
+                            },
+                            {'incon':'bi-border-outer','text':'Borde','function':function(event){
+                                    selector.cellselects[selector.cellselects.length-1].forEach((cell,i)=>{
+                                        cell.style['border-bottom-color']='black';
+                                    });
+                                    selector.cellselects[0].forEach((cell,i)=>{
+                                        let cel2=cell.sheetstable.Cells([cell.row-1,cell.colum]);
+                                        cel2.style['border-bottom-color']='black';
+                                    });
+                                    selector.cellselects.forEach((row,i)=>{
+                                        row[row.length-1].style['border-right-color']='black';
+                                    });
+                                    selector.cellselects.forEach((row,i)=>{
+                                        let cel2= row[0].sheetstable.Cells([row[0].row,row[0].colum-1]);
+                                        cel2.style['border-right-color']='black';
+                                    });
+                                },
+                            },
+                        ]
+                    ]
+                },
+                {
+                    'incon':'bi-palette-fill',
+                    'text':'',
+                    'elemento':inputcolor
+                }
+            ]
+        ];
+    }
 }
 
 //input class
@@ -1259,6 +1600,7 @@ class SheetsInput extends HTMLInputElement{
         this.addEventListener('mouseup',(event)=>{event.stopPropagation()});
         this.value=this.cell.value;
         this.addEventListener('input',this.Keyinput.bind(this));
+        this.addEventListener('contextmenu',this.cell.ClickMenu.bind(this.cell));
         this.cell.sheetstable.inputelement=this;
         this.cellsintext=[];
     }
@@ -1515,7 +1857,7 @@ class SheetsWidgetCellText{
         }
 
         if(this.rawdata.color && this.cell.style['background']!=this.rawdata.color){
-            this.cell.style['background']==this.rawdata.color;
+            this.cell.style['background']=this.rawdata.color;
         }
 
         if(this.cell.paragrafelement && this.rawdata.textalign && this.cell.paragrafelement.style['justify-content']!=this.rawdata.textalign){
@@ -1568,7 +1910,6 @@ class SheetsWidgetCellText{
         let data=[0,'space-between','Unit','',false];
         data[3]=rawvalue.formatUnits().replace(/\s\/\s/g,'/').replace(/ /g,'*').replace(/deg/g,'°');
         data[0]=rawvalue;
-        this.rawdata.textedit=false;
         return data;
     }
 
@@ -1577,7 +1918,7 @@ class SheetsWidgetCellText{
         this.cell.datatext=datastyle[3];
         this.rawdata.value=datastyle[0];
         this.typeText=datastyle[2];
-        this.rawdata.textalign=(!datastyle[4] && this.rawdata.textedit)? this.rawdata.textalign: datastyle[1];
+        this.rawdata.textalign=(datastyle[4] && this.rawdata.textedit)? this.rawdata.textalign: datastyle[1];
         
         this.rawdata.DisplayText=this.rawdata.value;
         let digits=this.rawdata.digits;
