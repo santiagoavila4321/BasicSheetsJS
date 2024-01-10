@@ -1,3 +1,11 @@
+.tabla-sheet-contendero-padre *{
+    box-sizing: inherit;
+}
+
+.tabla-sheet-contendero-padre input{
+    padding: initial;
+}
+
 .table-conten-sheets{
     width: 100%;
     height: 100%;
@@ -16,9 +24,14 @@
     --select-multi-cells-borde:solid color-mix(in srgb, var(--color-primario) 60%, black) 2px;
     --font-size: 13px;
     --font-size-title: calc(var(--font-size) + 1px);
+    box-sizing: content-box;
 }
 .table-object-sheets{
     border-collapse: collapse;
+}
+
+.table-object-sheets td{
+    box-sizing: content-box;
 }
 
 .table-object-sheets thead{
@@ -213,7 +226,7 @@
     border: solid var(--select-border-color) 0.5px;
     overflow-y: auto;
     position: absolute;
-    z-index: 1;
+    z-index: 100;
 }
 
 .table-sheet-item-selector{
@@ -302,6 +315,7 @@
     top: 0px;
     background: white;
     z-index: 100;
+    box-sizing: content-box;
 }
 
 .table-sheets-function-boton {
@@ -309,6 +323,7 @@
     width: 15px;
     padding: 10px;
     fill: rgb(100,100,100);
+    box-sizing: content-box;
 }
 
 .table-sheets-editor-input-contenedor{
@@ -318,11 +333,15 @@
     position: relative;
     font-size: 15px;
     font-family: sans-serif;
+    box-sizing: content-box;
+    text-align: left;
 }
 
 p.table-sheets-editor-input-black {
     width: 100%;
     margin: 0px;
+    font-size: 15px;
+    font-family: sans-serif;
 }
 
 .table-sheets-editor-input-contenedor input{
@@ -334,6 +353,7 @@ p.table-sheets-editor-input-black {
     font-family: sans-serif;
     color: transparent;
     caret-color:black;
+    box-sizing: content-box;
 }
 
 .table-sheets-editor-input-contenedor input:focus-visible{

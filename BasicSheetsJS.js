@@ -192,6 +192,7 @@ class SheetsTable{
         document.addEventListener('keyup',this.keyup);
 
         //Asignamos al elmento madre
+        element.classList.add('tabla-sheet-contendero-padre');
         element.appendChild(this.element);
     }
 
@@ -1669,7 +1670,9 @@ class SheetsInput extends HTMLInputElement{
         this.addEventListener('mouseup',(event)=>{event.stopPropagation()});
         this.value=this.cell.value;
         this.addEventListener('input',this.Keyinput.bind(this));
-        this.addEventListener('contextmenu',this.cell.ClickMenu.bind(this.cell));
+        this.addEventListener('contextmenu',(event)=>{
+            event.stopPropagation();
+        });
         this.cell.sheetstable.inputelement=this;
         this.cellsintext=[];
     }
@@ -2202,8 +2205,8 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
             }
             this.selecte_conten.appendChild(item);
         });
-        if(!this.cell.sheetstable.element.parentElement.contains(this.selecte_conten)){
-            this.cell.sheetstable.element.parentElement.appendChild(this.selecte_conten);
+        if(!document.body.contains(this.selecte_conten)){
+            document.body.appendChild(this.selecte_conten);
             this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
         }
     }
@@ -2687,8 +2690,8 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.ecuation_document.className='Sheet-table-equation-latex-contenedor';
         }
         this.selecte_conten.appendChild(this.ecuation_document);
-        if(!this.cell.sheetstable.element.parentElement.contains(this.selecte_conten)){
-            this.cell.sheetstable.element.parentElement.appendChild(this.selecte_conten);
+        if(!document.body.contains(this.selecte_conten)){
+            document.body.appendChild(this.selecte_conten);
             this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
         }
         return this.ecuation_document;
