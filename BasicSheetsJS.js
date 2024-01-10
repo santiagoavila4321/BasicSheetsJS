@@ -137,6 +137,22 @@ class SheetsTable{
         this.inputelement=null;
         this.id=element.id;
 
+        //Definimos las obciones con la data entrante
+        if(data!==null){
+            if(!(data instanceof Array)){
+                let ncolumns=(opcions.columns || 0);
+                opcions.columns=Array.from(Object.keys(data)).map(columna=>{
+                    return {name:columna,modific:false};
+                });
+                console.log(ncolumns);
+                ncolumns=((typeof(ncolumns)!='number'))? ncolumns.length-opcions.columns.length : ncolumns-opcions.columns.length;
+                for(let i=0;i<ncolumns;i++){
+                    opcions.columns.push({});
+                }
+            }
+
+        }
+
         //Variables de funcionamiento
         Object.defineProperties(this,{
             //Defino las opciones
@@ -191,6 +207,11 @@ class SheetsTable{
         document.addEventListener('keydown',this.keydown);
         document.addEventListener('keyup',this.keyup);
 
+        //cargar data
+        if(data!==null){
+            this.DataFrame=data;
+        }
+
         //Asignamos al elmento madre
         element.classList.add('tabla-sheet-contendero-padre');
         element.appendChild(this.element);
@@ -227,6 +248,14 @@ class SheetsTable{
 
     get Rows(){
         return this.TableBody.rows;
+    }
+
+    set DataFrame(data){
+        Object.keys(data).forEach((key,k)=>{
+            data[key].forEach((d,r)=>{
+                this.Cells([r,k]).value=d;
+            });
+        });
     }
 
     deseleccion(){
@@ -338,6 +367,15 @@ class SheetsTable{
     WidgetsCellsDifine(type,invocacion,widgets){
         this.SheetWidgetsCells.splace(0,0,{type:type,invocacion:invocacion,widgets: widgets});
         return this.SheetWidgetsCells[0];
+    }
+
+    remove(){
+        Array.from(this.table.querySelectorAll('td[class="table-sheets-celda"]')).forEach(cell=>{
+            cell.remove();
+        });
+        document.removeEventListener('keydown',this.keydown);
+        document.removeEventListener('keyup',this.keyup);
+        this.element.remove();
     }
 
     #selecs_cels(cell1,cell2){
@@ -710,6 +748,7 @@ class SheetsColum extends HTMLTableCellElement{
         let celss=[];
         for(let row of this.sheetstable.Rows){
             let cell = row.childNodes[this.index+1];
+            console.log(cell);
             celss.push({'type':cell.type,'value':cell.value});
             cell.remove();
         }
@@ -880,6 +919,7 @@ class SheetsCell extends HTMLTableCellElement{
 
     remove(){
         this.sheetstable.Rows[this.row].UpdateIndexColum(this.colum,-1);
+        this.widgets.RemoveWidget();
         super.remove();
     }
 
@@ -1076,12 +1116,17 @@ class SheetsCell extends HTMLTableCellElement{
                                     celda.widgets.rawdata.digits++;
                                     celda.widgets.rawdata.textalign=true;
                                     celda.widgets.DisplayText();
+                                    return true;
                                 }
                             },
                             {'incon':'','text':'Quitar decimales','function':function(event){
+                                    if(celda.widgets.rawdata.digits-1<0){
+                                        return true;
+                                    }
                                     celda.widgets.rawdata.digits--;
                                     celda.widgets.rawdata.textalign=true;
                                     celda.widgets.DisplayText();
+                                    return true;
                                 }
                             }
                         ]
@@ -1172,7 +1217,7 @@ class SheetsOpcions{
                     }
                 });
             }else{
-                this.sheetstable.Columns.appendChild(new SheetsColum(Columna));
+                this.sheetstable.TableHead.appendChild(new SheetsColum((Object.keys(Columna).length>0)? Columna: {sheetstable:this.sheetstable,columIndex:k}));
             }
         });
         return Array.from(this.sheetstable.Columns).map(Columna=>{return {'name': Columna.name}});
@@ -1632,16 +1677,18 @@ class SheetsSelector extends HTMLDivElement{
                                         cell.widgets.rawdata.textedit=true;
                                         cell.widgets.DisplayText();
                                     });
+                                    return true;
                                 }
                             },
                             {'incon':'','text':'Quitar decimales','function':function(event){
                                     selector.cellselects.flat().forEach(cell=>{
                                         if(cell.widgets.rawdata.digits-1<0){
-                                            return;
+                                            return true;
                                         }
                                         cell.widgets.rawdata.digits--;
                                         cell.widgets.rawdata.textedit=true;
                                         cell.widgets.DisplayText();
+                                        return true;
                                     });
                                 }
                             }
