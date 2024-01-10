@@ -72,7 +72,10 @@ const SHEETS_FUNCTIONS={
     INDEX:(mx,i,j)=>{return mx.get([i-1,j-1]);},
     MAX:(x)=>{return math.max(x);},
     MIN:(x)=>{return math.min(x);},
-    PROMEDIO:(x)=>{return math.mean(x)}
+    PROMEDIO:(x)=>{return math.mean(x)},
+    PROMEDIOPON:(x,a)=>{
+        return math.dot(x, a)/math.sum(x);
+    },
 
 };
 
