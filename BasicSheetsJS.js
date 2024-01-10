@@ -10,7 +10,8 @@ const RAW_DATA_TEXT ={
     notation:'fixed',
     typeText:'Text',
     DisplayText:'',
-    textedit:false
+    textedit:false,
+    error:''
 }
 
 
@@ -436,6 +437,7 @@ class SheetsTable{
             }
         }
         if(event.key==='Escape'){
+            this.ctrl_clikc=false;
             this.cellselect=null;
             return;
         }
@@ -925,6 +927,7 @@ class SheetsCell extends HTMLTableCellElement{
         if(!this.input && this.inputconten){
             this.input=new SheetsInput({sheetcell:this});
             this.input.type='Text';
+            this.inputconten.ElementMove.remove();
             this.inputconten.appendChild(this.input);
             this.widgets.InputCreate();
         }
@@ -940,12 +943,6 @@ class SheetsCell extends HTMLTableCellElement{
         if(this.sheetstable.cellselect && this.sheetstable.cellselect!=cell && !this.sheetstable.ctrl_clikc){
             this.sheetstable.cellselect.widgets.readinput();
             this.sheetstable.cellselect.select=false;
-        }
-
-        if(this.sheetstable.ctrl_clikc && (event.target instanceof SheetsSelector)){
-            event.target.remove();
-            event.stopPropagation();
-            return;
         }
         if(cell){
             if(this.sheetstable.cellselect && this.sheetstable.cellselect!=cell && event.ctrlKey && this.sheetstable.cellselect.inputconten){
@@ -984,7 +981,8 @@ class SheetsCell extends HTMLTableCellElement{
     }
 
     ClickMenu(event){
-        console.log();
+        this.sheetstable.cellselect=this;
+        this.CreateSelectorElement();
         event.stopPropagation();
         event.preventDefault();
         DropMenu([event.clientX-5,event.clientY-5],this.#ClicDropMenu());
@@ -995,7 +993,7 @@ class SheetsCell extends HTMLTableCellElement{
         inputcolor.className='menu-dropdown-item';
         let color=document.createElement('input');
         color.style='border-block: none;border: none;background: none;';
-        color.addEventListener('change',(event)=>{
+        color.addEventListener('input',(event)=>{
             this.widgets.rawdata.color=color.value;
             this.widgets.DisplayText();
         });
@@ -1012,7 +1010,7 @@ class SheetsCell extends HTMLTableCellElement{
         return [
             [
                 {'incon':'bi-copy','text':'Copiar','function':function(event){console.log(this.text);}},
-                {'incon':'bi-clipboard-fill','text':'Pegar','function':function(event){console.log(this.text);}},
+                {'incon':'bi-clipboard-fill','text':'Pegar','function':function(event){pegarDesdePortapapeles();}},
                 {'incon':'bi-scissors','text':'Cortar','function':function(event){console.log(this.text);}}
             ],
             [
@@ -1047,19 +1045,19 @@ class SheetsCell extends HTMLTableCellElement{
                             {'incon':'bi-text-left','text':'Izquierda','function':function(event){
                                     celda.widgets.rawdata.textalign='left';
                                     celda.widgets.rawdata.textedit=true;
-                                    celda.widgets.DisplayText();
+                                    celda.widgets.StyleUpdate();
                                 }
                             },
                             {'incon':'bi-text-center','text':'Centrado','function':function(event){
                                     celda.widgets.rawdata.textalign='center';
                                     celda.widgets.rawdata.textedit=true;
-                                    celda.widgets.DisplayText();
+                                    celda.widgets.StyleUpdate();
                                 }
                             },
                             {'incon':'bi-text-right','text':'Derecha','function':function(event){
                                     celda.widgets.rawdata.textalign='end';
                                     celda.widgets.rawdata.textedit=true;
-                                    celda.widgets.DisplayText();
+                                    celda.widgets.StyleUpdate();
                                 }
                             }
                         ]
@@ -1072,11 +1070,13 @@ class SheetsCell extends HTMLTableCellElement{
                         [
                             {'incon':'','text':'Añadir decimales','function':function(event){
                                     celda.widgets.rawdata.digits++;
+                                    celda.widgets.rawdata.textalign=true;
                                     celda.widgets.DisplayText();
                                 }
                             },
                             {'incon':'','text':'Quitar decimales','function':function(event){
                                     celda.widgets.rawdata.digits--;
+                                    celda.widgets.rawdata.textalign=true;
                                     celda.widgets.DisplayText();
                                 }
                             }
@@ -1183,6 +1183,7 @@ class SheetsOpcions{
 class SheetsSelector extends HTMLDivElement{
     _selects=[];
     _color='';
+    _move=false;
     constructor({sheetcell=null,isCellcreado=true}){
         super();
         this.cell=sheetcell;
@@ -1190,6 +1191,8 @@ class SheetsSelector extends HTMLDivElement{
         this.className='tabla-sheet-seleccion';
         this.VisulRange=document.createElement('div');
         this.VisulRange.className='tabla-sheet-seleccion-visual-range';
+        this.ElementMove=document.createElement('i');
+        this.ElementMove.className='bi bi-arrow-down-square-fill';
 
         if(this.cell.sheetstable.SelectorConten.childNodes.length==0){
             this.color=this.cell.sheetstable.opcions.colorprimario;
@@ -1197,20 +1200,18 @@ class SheetsSelector extends HTMLDivElement{
             this.color=colorsecuencia(this.cell.sheetstable.SelectorConten.childNodes.length-1);
         }
         this.appendChild(this.VisulRange);
+        this.appendChild(this.ElementMove);
         this.cell.sheetstable.SelectorConten.appendChild(this);
         this.SelectorVisual=false;
         this.cellselects=[[this.cell]];
 
         //Identificador de borde solido o con trazos
         this.move=false;
-        this.addEventListener('mouseup',this.#Mouseup.bind(this));
-        this.addEventListener('mousedown',(event)=>{
-            if(event.button==2){
-                event.stopPropagation();
-                event.preventDefault();
-            }
-        });
-        this.addEventListener('contextmenu',this.#MouseDropMenu.bind(this));
+        this.addEventListener('mouseup',this.#Mouseup,true);
+        this.addEventListener('mousedown',this.#MouseDown,true);
+        this.addEventListener('contextmenu',this.#MouseDropMenu);
+
+        this.ElementMove.addEventListener('mousedown',this.#ElementmoveMouseDown.bind(this),true);
 
     }
 
@@ -1223,6 +1224,11 @@ class SheetsSelector extends HTMLDivElement{
     
     set move(val){
         this.style['transition']=(val)? '0.2s':'-1s';
+        return this._move=val;
+    }
+
+    get move(){
+        return this._move;
     }
 
     set SelectorVisual(val){
@@ -1242,6 +1248,7 @@ class SheetsSelector extends HTMLDivElement{
             this.style['border-color']=`color-mix(in srgb, ${val} 60%, black)`;
             this.style['background']=`color-mix(in srgb, ${val} 10%, rgba(255,255,255,0))`;
             this.VisulRange.style.background=`color-mix(in srgb, ${val} 30%, white)`;
+            this.ElementMove.style.color=`color-mix(in srgb, ${val} 20%, black)`;
             this._color=val;
         }
         return this._color;
@@ -1367,17 +1374,50 @@ class SheetsSelector extends HTMLDivElement{
         }
     }
 
-    #Mouseup(event){
-        if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
-            this.cell.sheetstable.inputelement.cell.widgets.Inpuntkey(event);
+    #MouseDown(event){
+        if(event.button==2){
+            event.stopPropagation();
+            event.preventDefault();
         }
-        this.cell.sheetstable.cellselect2=this._selects.flat().slice(-1)[0];
+        if(event.button==0){
+            if((this.cell.sheetstable.ctrl_clikc || event.ctrlKey) && !this.SelectorVisual){
+                event.stopPropagation();
+                this.isCellcreado=false;
+            }
+        }
+    }
+
+    #Mouseup(event){
+        if(event.button==0){
+            if(event.ctrlKey && !this.isCellcreado && !this.SelectorVisual){
+                this.remove();
+                event.stopPropagation();
+            }
+            if(this.move){
+                this.move=false;
+            }
+            if(this.cell.sheetstable.ctrl_clikc && this.cell.sheetstable.inputelement && this.isCellcreado){
+                this.cell.sheetstable.inputelement.cell.widgets.Inpuntkey(event);
+            }
+            this.cell.sheetstable.cellselect2=this._selects.flat().slice(-1)[0];
+        }
+    }
+
+    #ElementmoveMouseDown(event){
+        if(event.button==0){
+            if(!this.cell.input){
+                this.move=true;
+                this.cell.sheetstable._mousemove=true;
+                this.cell.sheetstable.cellselect=this.cell;
+                event.stopPropagation();
+                event.preventDefault();
+            }
+        }
     }
 
     #MouseDropMenu(event){
         event.stopPropagation();
         event.preventDefault();
-        this.cell.sheetstable.ctrl_clikc=true;
         DropMenu([event.clientX-5,event.clientY-5],this.#ClicDropMenu());
     }
 
@@ -1386,17 +1426,34 @@ class SheetsSelector extends HTMLDivElement{
         inputcolor.className='menu-dropdown-item';
         let color=document.createElement('input');
         color.style='border-block: none;border: none;background: none;';
-        color.addEventListener('change',(event)=>{
+        color.addEventListener('input',(event)=>{
             this.cellselects.flat().forEach(cell=>{
                 cell.widgets.rawdata.color=color.value;
-                cell.widgets.DisplayText();
+                cell.style.background=color.value;
             });
         });
         let text=document.createElement('label');
         text.innerText='Color';
         inputcolor.appendChild(text);
         inputcolor.appendChild(color);
-        color.value='#FFFFFF';
+
+        // Objeto para almacenar la cuenta de cada color
+        let conteoColores = {};
+
+        // Recorre cada elemento y obtén su color
+        this.cellselects.flat().forEach(function(elemento) {
+            const color = window.getComputedStyle(elemento).getPropertyValue('background-color').replace(/rgb|\(|\)|\s/g, '');
+            const [r, g, b] = color.split(',').map(c => parseInt(c));
+            const hexColor = rgbToHex([r, g, b]);
+            
+            // Incrementa la cuenta para ese color en el objeto de conteo
+            conteoColores[hexColor] = (conteoColores[hexColor] || 0) + 1;
+        });
+
+        // Encuentra el color con la mayor cuenta
+        color.value=Object.keys(conteoColores).reduce(function(a, b) {
+            return conteoColores[a] > conteoColores[b] ? a : b;
+        });
         color.setAttribute('type','color');
         inputcolor.addEventListener('click',(event)=>{
             event.stopPropagation();
@@ -1407,94 +1464,6 @@ class SheetsSelector extends HTMLDivElement{
                 {'incon':'bi-copy','text':'Copiar','function':function(event){console.log(this.text);}},
                 {'incon':'bi-clipboard-fill','text':'Pegar','function':function(event){console.log(this.text);}},
                 {'incon':'bi-scissors','text':'Cortar','function':function(event){console.log(this.text);}}
-            ],
-            [
-                {
-                    'incon':'bi-123',
-                    'text':'Formato',
-                    'submenu':[
-                        [
-                            {'incon':'','text':'Lineal','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.notation='fixed';
-                                        cell.widgets.DisplayText();
-                                    });
-                                }
-                            },
-                            {'incon':'','text':'Exponencial','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.notation='exponential';
-                                        cell.widgets.DisplayText();
-                                    });
-                                }
-                            },
-                            {'incon':'','text':'Ingeneria','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.notation='engineering';
-                                        cell.widgets.DisplayText();
-                                    });
-                                }
-                            },
-                        ]
-                    ]
-                },
-                {
-                    incon:'bi-justify',
-                    text:'Alineación',
-                    'submenu':[
-                        [
-                            {'incon':'bi-text-left','text':'Izquierda','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.textalign='left';
-                                        cell.widgets.DisplayText();
-                                        cell.widgets.rawdata.textedit=true;
-                                    });
-                                    
-                                }
-                            },
-                            {'incon':'bi-text-center','text':'Centrado','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.textalign='center';
-                                        cell.widgets.DisplayText();
-                                        cell.widgets.rawdata.textedit=true;
-                                    });
-                                    
-                                }
-                            },
-                            {'incon':'bi-text-right','text':'Derecha','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.textalign='end';
-                                        cell.widgets.DisplayText();
-                                        cell.widgets.rawdata.textedit=true;
-                                    });
-                                    
-                                }
-                            }
-                        ]
-                    ]
-                },
-                {
-                    'incon':'decimales',
-                    'text':'Decimales',
-                    'submenu':[
-                        [
-                            {'incon':'','text':'Añadir decimales','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.digits++;
-                                        cell.widgets.DisplayText();
-                                    });
-                                }
-                            },
-                            {'incon':'','text':'Quitar decimales','function':function(event){
-                                    selector.cellselects.flat().forEach(cell=>{
-                                        cell.widgets.rawdata.digits--;
-                                        cell.widgets.DisplayText();
-                                    });
-                                }
-                            }
-                        ]
-                    ]
-                }
             ],
             [
                 {
@@ -1579,7 +1548,102 @@ class SheetsSelector extends HTMLDivElement{
                             },
                         ]
                     ]
+                }
+            ],
+            [
+                {
+                    'incon':'bi-123',
+                    'text':'Formato',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Lineal','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='fixed';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Exponencial','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='exponential';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Ingeneria','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.notation='engineering';
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                        ]
+                    ]
                 },
+                {
+                    incon:'bi-justify',
+                    text:'Alineación',
+                    'submenu':[
+                        [
+                            {'incon':'bi-text-left','text':'Izquierda','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='left';
+                                        cell.widgets.rawdata.textedit=true;
+                                        cell.widgets.StyleUpdate();
+                                    });
+                                    
+                                }
+                            },
+                            {'incon':'bi-text-center','text':'Centrado','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='center';
+                                        cell.widgets.rawdata.textedit=true;
+                                        cell.widgets.StyleUpdate();
+                                    });
+                                    
+                                }
+                            },
+                            {'incon':'bi-text-right','text':'Derecha','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.textalign='end';
+                                        cell.widgets.rawdata.textedit=true;
+                                        cell.widgets.StyleUpdate();
+                                    });
+                                    
+                                }
+                            }
+                        ]
+                    ]
+                },
+                {
+                    'incon':'decimales',
+                    'text':'Decimales',
+                    'submenu':[
+                        [
+                            {'incon':'','text':'Añadir decimales','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        cell.widgets.rawdata.digits++;
+                                        cell.widgets.rawdata.textedit=true;
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            },
+                            {'incon':'','text':'Quitar decimales','function':function(event){
+                                    selector.cellselects.flat().forEach(cell=>{
+                                        if(cell.widgets.rawdata.digits-1<0){
+                                            return;
+                                        }
+                                        cell.widgets.rawdata.digits--;
+                                        cell.widgets.rawdata.textedit=true;
+                                        cell.widgets.DisplayText();
+                                    });
+                                }
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
                 {
                     'incon':'bi-palette-fill',
                     'text':'',
@@ -1865,6 +1929,17 @@ class SheetsWidgetCellText{
         }
     }
 
+    ErrorCalc(error,textdisplay='#REF'){
+        this.rawdata.rawvalue=null;
+        this.rawdata.value=textdisplay;
+        this.rawdata.error=error;
+        this.rawdata.textalign='center';
+        this.typeText='Text';
+        this.DisplayText();
+        this.rawdata.value=null;
+        console.error(error);
+    }
+
     NumeroFormat(num,digits=2,notation='fixed'){
         if(math.typeOf(num)=='string'){
             return num;
@@ -1880,24 +1955,34 @@ class SheetsWidgetCellText{
 
     TextTypeCheck(value){
         let data=[0,'end','Text','',false];
+        if(Number.isNaN(value)){
+            data[0]='center';
+            data[0]='#NaN';
+            data[4]=true;
+            return data;
+        }
         if(math.typeOf(value)=='number'){
             data[0]=value;
             data[2]=(!this.IsEntero(value))? 'Numero': 'Entero';
             data[1]='end';
             data[4]=true;
-        }else if(math.typeOf(value)=='Unit'){
-            data=this.ValueUnit(value);
-        }else if(math.typeOf(value)=='Complex'){
-            data=this.ValueComplex(value);
-        }else if(math.typeOf(value)=='string'){
+            return data;
+        }
+        if(math.typeOf(value)=='Unit'){
+            return this.ValueUnit(value);
+        }
+        if(math.typeOf(value)=='Complex'){
+            return this.ValueComplex(value);
+        }
+        if(math.typeOf(value)=='string'){
             data[0]=value;
             data[1]='center';
             data[4]=true;
-        }else{
-            data[0]='#NAME';
-            data[1]='center';
-            data[4]=true;
+            return data;
         }
+        data[0]='#NAME';
+        data[1]='center';
+        data[4]=true;
         return data;
     }
 
@@ -1922,7 +2007,7 @@ class SheetsWidgetCellText{
         
         this.rawdata.DisplayText=this.rawdata.value;
         let digits=this.rawdata.digits;
-        if(this.rawdata.typeText=='Entero'){
+        if(this.rawdata.typeText=='Entero' && !this.rawdata.textedit){
             digits=0;
         }
         this.rawdata.DisplayText=this.NumeroFormat(this.rawdata.value,digits,this.rawdata.notation);
@@ -1991,7 +2076,7 @@ class SheetsWidgetCellText{
     }
 
     #CheckValue(value){
-        if(value==='' || value===null || value===undefined){
+        if(value==='' || value===null || value===undefined || Number.isNaN(value)){
             this.rawdata.value='';
             this.rawdata.DisplayText='';
             if(this.cell.type!='Text' && value!==''){
@@ -2245,7 +2330,7 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             cellsEvents:{},
             scope:{},
             rawvalue:0,
-            error:''
+            exprecion:''
         });
         this.rawdata=this.RawDataChange(prototype_rawdata,data);
 
@@ -2255,7 +2340,6 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
         this.ecuation_document=null;
         this.selecte_conten=null;
         this.promise = Promise.resolve();
-        this.promise
         this.compile=null;
         this.recurcividad={'existe':false};
         this.ismatrix=false;
@@ -2283,6 +2367,14 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.GetScope();
             this.CreateVisualEquation();
         }
+    }
+
+    set exprecion(val){
+        return this.rawdata.exprecion=val;
+    }
+
+    get exprecion(){
+        return this.rawdata.exprecion;
     }
 
     set ismatrix(val){
@@ -2379,17 +2471,6 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.rawdata.scope[this.cell.address]='';
             return; 
         }
-    }
-
-    ErrorCalc(error){
-        this.rawdata.rawvalue=null;
-        this.rawdata.value="#REF";
-        this.rawdata.error=error;
-        this.rawdata.textalign='center';
-        this.typeText='Text';
-        this.DisplayText();
-        this.rawdata.value=null;
-        console.error('Error durante la evaluación:',error);
     }
 
     CheckTypeValue(value){
@@ -2492,7 +2573,7 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
                 }
                 let isequal=(math.typeOf(datavalue)==math.typeOf(cell.widgets.value)) && math.equal(datavalue,cell.widgets.value);
 
-                if((cell.type!='Text' || (cell.type=='Text' && (cell.value!='' && !isequal))) && !des){
+                if((cell.type!='Text' || (cell.type=='Text' && (cell.value!='' && ! Number.isNaN(cell.value) && !isequal))) && !des){
                     this.rawdata.value='#DES';
                     des=true;
                     i=0;
@@ -2504,7 +2585,7 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
                     cell.widgets.DisplayText();
                 }else{
                     isequal=(math.typeOf(rawvalue.get([i,k]))==math.typeOf(cell.widgets.value)) && math.equal(rawvalue.get([i,k]),cell.widgets.value);
-                    if(cell.type=='Text' && isequal){
+                    if(cell.type=='Text' && (isequal ||  Number.isNaN(cell.value))){
                         cell.widgets.rawdata.value='';
                         cell.widgets.DisplayText();
                     }
@@ -2630,6 +2711,7 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
         this.exprecion=value.slice(1);
         this.GetScope();
         this.CheckTypeValue(value);
+        this.RenderLatex();
     }
 
     Inpuntkey(event){
@@ -2754,6 +2836,10 @@ function generarIdAleatorio() {
     }
 
     return idAleatorio;
+}
+
+function rgbToHex(rgb) {
+    return '#' + rgb.map(c => (c < 16 ? '0' : '') + c.toString(16)).join('');
 }
 
 customElements.define('sheets-colum', SheetsColum, { extends: 'td' });

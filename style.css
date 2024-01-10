@@ -190,6 +190,15 @@
     outline: none;
 }
 
+.tabla-sheet-seleccion i[class="bi bi-arrow-down-square-fill"]{
+    position: absolute;
+    left: calc(100%);
+    top: calc(100%);
+    display: block;
+    cursor: move;
+    font-size: 13px;
+}
+
 .table-sheets-list-box-selectro-contenedor{
     --color-primario:rgb(0, 217, 255);
     --select-color:color-mix(in srgb, var(--color-primario) 20%, white);

@@ -7,3 +7,13 @@ var tabla=new SheetsTable({
         rows:20,
     }
 });
+
+function pegarDesdePortapapeles() {
+    navigator.clipboard.readText()
+      .then(texto => {
+        console.log('Texto pegado:', texto);
+      })
+      .catch(err => {
+        console.error('Error al pegar el texto', err);
+      });
+  }
