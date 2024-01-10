@@ -1411,7 +1411,9 @@ class SheetsSelector extends HTMLDivElement{
             if(!this.cell.input){
                 this.move=true;
                 this.cell.sheetstable._mousemove=true;
-                this.cell.sheetstable.cellselect=this.cell;
+                if(this.cell.sheetstable.cellselect!==this.cell){
+                    this.cell.sheetstable.cellselect=this.cell;
+                }
                 event.stopPropagation();
                 event.preventDefault();
             }
