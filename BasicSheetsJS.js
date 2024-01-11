@@ -110,6 +110,7 @@ class SheetsTable{
     _mousemove=false;
     _cellselect=null;
     constructor({element,opcions={},data=null}){
+        element.innerHTML='';
         //Creador de elementos
         //Elmento contenedor
         this.element=document.createElement('div');
@@ -136,22 +137,6 @@ class SheetsTable{
         this.ctrl_clikc=false;
         this.inputelement=null;
         this.id=element.id;
-
-        //Definimos las obciones con la data entrante
-        if(data!==null){
-            if(!(data instanceof Array)){
-                let ncolumns=(opcions.columns || 0);
-                opcions.columns=Array.from(Object.keys(data)).map(columna=>{
-                    return {name:columna,modific:false};
-                });
-                console.log(ncolumns);
-                ncolumns=((typeof(ncolumns)!='number'))? ncolumns.length-opcions.columns.length : ncolumns-opcions.columns.length;
-                for(let i=0;i<ncolumns;i++){
-                    opcions.columns.push({});
-                }
-            }
-
-        }
 
         //Variables de funcionamiento
         Object.defineProperties(this,{
@@ -182,6 +167,15 @@ class SheetsTable{
         this.cellselect2=undefined;
 
         //asigno eventos
+        this.onMoveSelect=(element)=>{
+            return null;
+        };
+
+        this.onCellSelect=(cell)=>{
+            return null;
+        }
+
+
         this.keydown=(event)=>{
             if(document.body.contains(this.element)){
                 this.#key_down(event);
@@ -206,6 +200,7 @@ class SheetsTable{
         this.TableBody.addEventListener('blur', ()=>{this._mousemove=false;});
         document.addEventListener('keydown',this.keydown);
         document.addEventListener('keyup',this.keyup);
+
 
         //cargar data
         if(data!==null){
@@ -252,10 +247,32 @@ class SheetsTable{
 
     set DataFrame(data){
         Object.keys(data).forEach((key,k)=>{
+            if(k>=this.TableHead.childNodes.length-1){
+                this.addColum();
+            }
+            this.TableHead.childNodes[k+1].name=key;
+            this.TableHead.childNodes[k+1].modific=false;
             data[key].forEach((d,r)=>{
+                if(r>=this.Rows.length){
+                    this.addRow();
+                }
                 this.Cells([r,k]).value=d;
             });
         });
+    }
+    
+    ToArray(formato=true){
+        let data=[];
+
+        for(let row of this.Rows){
+            let row_data=[];
+            for(let cell of row.querySelectorAll('td:not(:first-child)')){
+                row_data.push(cell.widgets.rawdata);
+            }
+            data.push(row_data);
+        }
+
+        return data;
     }
 
     deseleccion(){
@@ -295,10 +312,13 @@ class SheetsTable{
 
     deteColum(index){
         if(!this.opcions.addcolumns){
-            return undefined;
+            return false;
+        }
+        if(!index){
+            index=this.Columns.length-1;
         }
         this.Columns[index].remove();
-        this.#UpdateIndexColum(index,-1);
+        this.#UpdateIndexColum(index,0);
 
         return true;
     }
@@ -309,6 +329,9 @@ class SheetsTable{
         }
 
         let colums=this.Columns;
+        if(!index){
+            index=colums.length;
+        }
         this.#UpdateIndexColum(index,1);
 
         if(index>=colums.length){
@@ -334,15 +357,19 @@ class SheetsTable{
         if(!this.opcions.addrows){
             return false;
         }
+        
+        index=(index || this.Rows.length-1);
 
         this.#UpdateIndexRows(index,-1);
         this.Rows[index].remove();
+        return true;
     }
 
     addRow(index){
         if(!this.opcions.addrows){
             return false;
         }
+        index=(index || this.Rows.length);
         let indece=index;
         if(index>=this.Rows.length){
             this.TableBody.appendChild(new SheetsRow({
@@ -362,6 +389,7 @@ class SheetsTable{
             this.Rows[indece].appendChild(new SheetsCell({sheetstable:this}));
         }
         this.Rows[indece],index=indece;
+        return true;
     }
 
     WidgetsCellsDifine(type,invocacion,widgets){
@@ -451,6 +479,7 @@ class SheetsTable{
             if(this.cellselect.inputconten){
                 this.cellselect.inputconten.move=true;
                 this.cellselect.inputconten.cellselects=this.#selecs_cels(this.cellselect,celda);
+                this.onMoveSelect(this.cellselect.inputconten);
             }
         }
     }
@@ -748,7 +777,6 @@ class SheetsColum extends HTMLTableCellElement{
         let celss=[];
         for(let row of this.sheetstable.Rows){
             let cell = row.childNodes[this.index+1];
-            console.log(cell);
             celss.push({'type':cell.type,'value':cell.value});
             cell.remove();
         }
@@ -997,6 +1025,7 @@ class SheetsCell extends HTMLTableCellElement{
             if(!this.input){
                 this.sheetstable._mousemove=true;
             }
+            this.sheetstable.onCellSelect(this);
             event.preventDefault();
         }
         event.stopPropagation();
@@ -1210,15 +1239,7 @@ class SheetsOpcions{
             return Array.from(this.sheetstable.Columns).map(Columna=>{return {'name': Columna.name}});
         }
         DataColum.forEach((Columna, k) => {
-            if(k<this.sheetstable.Columns.length){
-                Object.keys(Columna).forEach(key=>{
-                    if(this.sheetstable.Columns[k][key]){
-                        this.sheetstable.Columns[k][key]=Columna[key];
-                    }
-                });
-            }else{
-                this.sheetstable.TableHead.appendChild(new SheetsColum((Object.keys(Columna).length>0)? Columna: {sheetstable:this.sheetstable,columIndex:k}));
-            }
+            this.sheetstable.TableHead.appendChild(new SheetsColum((Object.keys(Columna).length>0)? Columna: {sheetstable:this.sheetstable,columIndex:k}));
         });
         return Array.from(this.sheetstable.Columns).map(Columna=>{return {'name': Columna.name}});
     }
@@ -1239,6 +1260,11 @@ class SheetsSelector extends HTMLDivElement{
         this.isCellcreado=isCellcreado;
         this.className='tabla-sheet-seleccion';
         this.VisulRange=document.createElement('div');
+        this.inputselector=document.createElement('input');
+        // this.inputselector.style.position='absolute';
+        // this.inputselector.style.top='-10000px';
+        // this.inputselector.style.left='-10000px';
+        // this.appendChild(this.inputselector);
         this.VisulRange.className='tabla-sheet-seleccion-visual-range';
         this.ElementMove=document.createElement('i');
         this.ElementMove.className='bi bi-arrow-down-square-fill';
@@ -1261,14 +1287,15 @@ class SheetsSelector extends HTMLDivElement{
         this.addEventListener('contextmenu',this.#MouseDropMenu);
 
         this.ElementMove.addEventListener('mousedown',this.#ElementmoveMouseDown.bind(this),true);
+        // this.inputselector.addEventListener('paste', (event)=>{console.log(event)});
 
     }
 
     UpdateStylePropertys(Cell1,Cell2){
-        this.style.left=(Cell1.getBoundingClientRect().x- 2 - this.cell.sheetstable.table.getBoundingClientRect().x)+'px';
-        this.style.top=(Cell1.getBoundingClientRect().y- 2 - this.cell.sheetstable.table.getBoundingClientRect().y+40)+'px';
-        this.style.width=(Cell2.getBoundingClientRect().x - Cell1.getBoundingClientRect().x + Cell2.getBoundingClientRect().width-1)+'px';
-        this.style.height=(Cell2.getBoundingClientRect().y - Cell1.getBoundingClientRect().y +  Cell2.getBoundingClientRect().height-1)+'px';
+        this.style.left=(Cell1.getBoundingClientRect().x- 1 - this.cell.sheetstable.table.getBoundingClientRect().x)+'px';
+        this.style.top=(Cell1.getBoundingClientRect().y- 1 - this.cell.sheetstable.table.getBoundingClientRect().y+40)+'px';
+        this.style.width=(Cell2.getBoundingClientRect().x - Cell1.getBoundingClientRect().x + Cell2.getBoundingClientRect().width-2)+'px';
+        this.style.height=(Cell2.getBoundingClientRect().y - Cell1.getBoundingClientRect().y +  Cell2.getBoundingClientRect().height-3)+'px';
     }
     
     set move(val){
@@ -1463,6 +1490,7 @@ class SheetsSelector extends HTMLDivElement{
                 event.stopPropagation();
                 event.preventDefault();
             }
+            // this.inputselector.select();
         }
     }
 
@@ -2171,6 +2199,7 @@ class SheetsWidgetCellList extends SheetsWidgetCellText{
         if(this.rawdata.textalign!='space-between'){
             this.rawdata.textalign='space-between';
         }
+        this.rawdata.textedit=true;
         super.DisplayText();
     }
 
@@ -2683,14 +2712,6 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
         });
     }
 
-    UpdateConten(){
-        if(this.selecte_conten){
-            this.selecte_conten.style.transition='0s';
-            this.selecte_conten.style.left=this.cell.getBoundingClientRect().x+'px';
-            this.selecte_conten.style.top=(this.cell.getBoundingClientRect().y+this.cell.getBoundingClientRect().height+5)+'px';
-        }
-    }
-
     VisualEquationOpacity(event){
         if(!this.selecte_conten){
             this.cell.sheetstable.element.removeEventListener('mousemove',this.OpacityEquation);
@@ -2726,10 +2747,11 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.selecte_conten=document.createElement('div');
             this.selecte_conten.className='table-sheets-list-box-selectro-contenedor';
             this.selecte_conten.style.setProperty('--color-primario',this.cell.sheetstable.opcions.colorprimario);
+            this.selecte_conten.style['top']='100%';
+            this.selecte_conten.style['left']='0px';
             this.selecte_conten.classList.add('Sheet-table-equation-latex-contenedor-padre');
             this.selecte_conten.style.pointerEvents='none';
             this.cell.sheetstable.element.addEventListener('mousemove',this.OpacityEquation);
-            this.UpdateConten();
         }
         this.selecte_conten.innerHTML='';
         if(!this.ecuation_documen){
@@ -2737,9 +2759,8 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
             this.ecuation_document.className='Sheet-table-equation-latex-contenedor';
         }
         this.selecte_conten.appendChild(this.ecuation_document);
-        if(!document.body.contains(this.selecte_conten)){
-            document.body.appendChild(this.selecte_conten);
-            this.cell.sheetstable.element.addEventListener('scroll',this.scrol_padre_elemen);
+        if(!this.cell.sheetstable.superiorinput.contains(this.selecte_conten)){
+            this.cell.sheetstable.superiorinput.appendChild(this.selecte_conten);
         }
         return this.ecuation_document;
     }
@@ -2837,6 +2858,7 @@ class SheetsWidgetCellFunction extends SheetsWidgetCellText{
         this.Calcular();
     }
 }
+
 function columnaindex(columIndex){
     const abc="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     if(columIndex<abc.length){

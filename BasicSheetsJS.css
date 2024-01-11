@@ -131,6 +131,7 @@
 
 /* Diseño del pagrafo p en la celda */
 .table-sheets-celda p{
+    min-width: max-content;
     display: flex;
     justify-content: space-between;
     margin: 0px;
