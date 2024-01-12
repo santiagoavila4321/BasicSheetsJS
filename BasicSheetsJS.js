@@ -11,7 +11,8 @@ const RAW_DATA_TEXT ={
     typeText:'Text',
     DisplayText:'',
     textedit:false,
-    error:''
+    formato:'',
+    error:'',
 }
 
 
@@ -206,6 +207,8 @@ class SheetsTable{
         if(data!==null){
             this.DataFrame=data;
         }
+
+        this.element.addEventListener('paste', this.#Pase_event.bind(this));
 
         //Asignamos al elmento madre
         element.classList.add('tabla-sheet-contendero-padre');
@@ -406,6 +409,62 @@ class SheetsTable{
         this.element.remove();
     }
 
+    #Pase_event(event){
+        let selectors = this.element.querySelectorAll('.tabla-sheet-seleccion');
+        if(!selectors){
+            return;
+        }
+        if(selectors.length>1){
+            return;
+        }
+        if(event.target==selectors[0].inputElemeto){
+            event.preventDefault();
+
+            const types=event.clipboardData.types;
+            console.log(types);
+            if(types.includes('application/x-vnd.google-docs-embedded-grid_range_clip+wrapped')){
+                let data = event.clipboardData.getData('application/x-vnd.google-docs-embedded-grid_range_clip+wrapped');
+                data = JSON.parse(data);
+                data = JSON.parse(data.data);
+                
+                // Crear un elemento div para contener la tabla y analizar el HTML
+                let divTemporal = document.createElement('div');
+                divTemporal.innerHTML = data.grh;
+                let tabla = divTemporal.querySelector('table');
+                let arrayDatos = [];
+                tabla.querySelectorAll('tr').forEach((fila,i)=> {
+                    let datosFila = [];
+                    fila.querySelectorAll('td').forEach((celda,j)=> {
+                        const valor = celda.getAttribute('data-sheets-value');
+                        const rawdata={
+                            textalign:(celda.style.textAlign=='')? 'left': celda.style.textAlign,
+                            textedit:true,
+                            type:'Text',
+                            color:(celda.style['background-color']=='')? '#FFFFFF': celda.style['background-color'],
+                        }
+                        try {
+                            let valorforamat =(valor!='')? JSON.parse(valor):{};
+                            let formato = (celda.getAttribute('data-sheets-numberformat')=='')? null: JSON.parse(celda.getAttribute('data-sheets-numberformat'));
+                            if(formato){
+                                rawdata['formato']= formato[2];
+                            }
+                            rawdata['value']=(celda.getAttribute('data-sheets-value')==null)? '': valorforamat[valorforamat[1]];
+                        } catch (error) {
+                            console.error(error);
+                            rawdata['value']='';
+                        }
+                        datosFila.push(rawdata);
+                        Object.assign(this.Cells([this.cellselect.row+i,this.cellselect.colum+j]).widgets.rawdata,rawdata);
+                        this.Cells([this.cellselect.row+i,this.cellselect.colum+j]).widgets.DisplayText();
+                    });
+                    arrayDatos.push(datosFila);
+                });
+
+                console.log(arrayDatos);
+            }
+        }
+    }
+
     #selecs_cels(cell1,cell2){
         let cellselects=[];
         if(cell1.row<cell2.row){
@@ -461,6 +520,18 @@ class SheetsTable{
         if(!this.inputelement){
             this.ctrl_clikc=event.ctrlKey;
         }
+
+        if(event.button==0){
+            let selector = this.element.querySelector('.tabla-sheet-seleccion');
+            if(selector){
+                this._mousemove=false;
+                selector.move=false;
+                if(!selector.cell.input){
+                    selector.inputElemeto.focus();
+                }
+            }
+        }
+        
     }
 
     #mousemovetable(event){
@@ -1260,11 +1331,14 @@ class SheetsSelector extends HTMLDivElement{
         this.isCellcreado=isCellcreado;
         this.className='tabla-sheet-seleccion';
         this.VisulRange=document.createElement('div');
-        this.inputselector=document.createElement('input');
-        // this.inputselector.style.position='absolute';
-        // this.inputselector.style.top='-10000px';
-        // this.inputselector.style.left='-10000px';
-        // this.appendChild(this.inputselector);
+
+        this.inputElemeto=document.createElement('input');
+        this.inputElemeto.style.position='absolute';
+        this.inputElemeto.style.top='-100000px';
+        this.inputElemeto.style.left='-100000px';
+        this.appendChild(this.inputElemeto);
+        this.inputElemeto.addEventListener('input',(ev)=>{this.inputElemeto.value=''})
+
         this.VisulRange.className='tabla-sheet-seleccion-visual-range';
         this.ElementMove=document.createElement('i');
         this.ElementMove.className='bi bi-arrow-down-square-fill';
@@ -1287,7 +1361,6 @@ class SheetsSelector extends HTMLDivElement{
         this.addEventListener('contextmenu',this.#MouseDropMenu);
 
         this.ElementMove.addEventListener('mousedown',this.#ElementmoveMouseDown.bind(this),true);
-        // this.inputselector.addEventListener('paste', (event)=>{console.log(event)});
 
     }
 
@@ -1484,13 +1557,13 @@ class SheetsSelector extends HTMLDivElement{
             if(!this.cell.input){
                 this.move=true;
                 this.cell.sheetstable._mousemove=true;
+                this.isCellcreado=true;
                 if(this.cell.sheetstable.cellselect!==this.cell){
                     this.cell.sheetstable.cellselect=this.cell;
                 }
                 event.stopPropagation();
                 event.preventDefault();
             }
-            // this.inputselector.select();
         }
     }
 
@@ -2024,6 +2097,14 @@ class SheetsWidgetCellText{
     }
 
     NumeroFormat(num,digits=2,notation='fixed'){
+        if(this.rawdata.formato !=''){
+            const result = this.rawdata.formato.match(/\[\$(?<moneda>.)\]/);
+            if(result){
+                this.cell.datatext=result.groups.moneda;
+                this.typeText='Moneda';
+            }
+            return numeral(num).format(this.rawdata.formato);
+        }
         if(math.typeOf(num)=='string'){
             return num;
         }
@@ -2166,6 +2247,7 @@ class SheetsWidgetCellText{
                 this.cell.widgets=new SheetsWidgetCellText({sheetcell:this.cell});
             }
             this.typeText='Text';
+            this.rawdata.formato='';
             return true;
         }
         return this.CheckTypeValue(value);

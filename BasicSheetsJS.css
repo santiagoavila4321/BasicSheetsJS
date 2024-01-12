@@ -154,6 +154,12 @@
     float: var(--float);
 }
 
+.table-sheets-celda[data-type="Moneda"] p::before{
+    --float:left;
+    content: attr(data-datatext);
+    float: var(--float);
+}
+
 .table-object-sheets tbody td[type="List"]{
     cursor: pointer;
 }
